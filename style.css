@@ -163,16 +163,18 @@ html.overdrive .flash { animation-duration:.4s; }
   transition:transform .18s, background .18s, border-color .18s, color .18s; }
 .dev::before,.dev::after { content:""; position:absolute; width:12px; height:12px; border:2px solid #fff; transition:.18s; }
 .dev::before { top:-2px; left:-2px; border-right:0; border-bottom:0; } .dev::after { bottom:-2px; right:-2px; border-left:0; border-top:0; }
-.dev .av { display:grid; place-items:center; width:clamp(54px,9vw,78px); aspect-ratio:1; font-size:clamp(1.6rem,4vw,2.6rem); border:2px solid #fff;
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); background:#000; transition:.18s; }
+.dev .av { --S:clamp(60px,10vw,88px); --k:calc(var(--S) / (2 * var(--r))); display:block; width:var(--S); height:var(--S); border:2px solid #fff; border-radius:50%; background-color:#000; transition:.18s; }
+.dev .av.pfp { box-sizing:content-box; margin:-2px; background-image:url(assets/profiles.png); background-repeat:no-repeat; image-rendering:auto;
+  background-size:calc(398 * var(--k)) calc(1004 * var(--k));
+  background-position:calc(-1 * (var(--cx) - var(--r)) * var(--k)) calc(-1 * (var(--cy) - var(--r)) * var(--k)); }
 .dev strong { font-size:clamp(.72rem,1.8vw,1.05rem); letter-spacing:.1em; word-break:break-word; }
 .dev small { font-size:.58rem; letter-spacing:.2em; color:var(--dim); }
 .dev em { font-style:normal; font-size:.58rem; letter-spacing:.2em; color:#555; transition:.18s; }
 .dev.main { border-color:#fff; padding-top:2rem; padding-bottom:1.3rem; box-shadow:0 0 22px rgba(255,255,255,.18); }
-.dev.main .av { width:clamp(66px,11vw,96px); }
+.dev.main .av { --S:clamp(72px,12vw,108px); }
 .dev .crown { position:absolute; top:-1px; left:50%; transform:translate(-50%,-50%); background:#fff; color:#000; padding:4px 10px; font-size:.58rem; letter-spacing:.24em; text-decoration:none; white-space:nowrap; }
 .dev:hover, .dev:focus-visible { transform:translateY(-6px); background:#fff; color:#000; border-color:#fff; }
-.dev:hover .av, .dev:focus-visible .av { background:#000; color:#fff; }
+.dev:hover .av, .dev:focus-visible .av { border-color:#000; }
 .dev:hover small, .dev:hover em, .dev:focus-visible small, .dev:focus-visible em { color:#000; }
 .dev:hover .crown { background:#000; color:#fff; }
 .tiktok { display:inline-grid; gap:.4rem; margin-top:1.6rem; padding:.9rem 1.6rem; border:2px solid #fff; background:rgba(0,0,0,.65); transition:.18s; }
