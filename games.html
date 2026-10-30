@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
-<body class="games">
+<body class="games ready">
   <canvas id="fx" aria-hidden="true"></canvas>
 
   <div class="bg-gears" aria-hidden="true">
@@ -22,30 +22,40 @@
 
   <nav class="top"><a href="index.html" data-go class="back">&lt; MENU</a></nav>
 
-  <!-- TODO: replace "#" with the Hollow Blade game link -->
-  <a class="banner rise" href="#" style="--r:0">
+  <a class="banner rise" href="https://discord.gg/QNGN2P7MNC" target="_blank" rel="noopener" data-discord style="--r:0">
     <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="4,4 996,4 982,50 996,96 4,96 18,50"/></svg>
     <span><i>[</i>HOLLOWBLADE<i>]</i><br>CLICK HERE</span>
     <em aria-hidden="true"></em>
   </a>
+  <p class="sub rise" style="--r:1">&#8627; JOIN THE HOLLOWBLADE DISCORD</p>
+
+  <div class="ticker rise" style="--r:1" aria-hidden="true">
+    <div class="track">
+      <span>/// HOLLOW BLADE IS IN DEVELOPMENT /// JOIN THE DISCORD FOR UPDATES /// NEW GAMES INCOMING /// GEARS: TURNING /// BLADES: SHARPENED /// STATUS: ONLINE </span>
+      <span>/// HOLLOW BLADE IS IN DEVELOPMENT /// JOIN THE DISCORD FOR UPDATES /// NEW GAMES INCOMING /// GEARS: TURNING /// BLADES: SHARPENED /// STATUS: ONLINE </span>
+    </div>
+  </div>
 
   <main class="content">
-    <h2 class="soon rise" style="--r:1">MORE GAMES SOON<span class="dots" aria-hidden="true"><b>.</b><b>.</b><b>.</b></span></h2>
+    <h2 class="soon rise" style="--r:2">MORE GAMES SOON<span class="dots" aria-hidden="true"><b>.</b><b>.</b><b>.</b></span></h2>
 
-    <div class="slots rise" style="--r:2" aria-hidden="true">
-      <div class="slot"><span>??</span><small>LOCKED</small></div>
-      <div class="slot"><span>??</span><small>LOCKED</small></div>
-      <div class="slot"><span>??</span><small>LOCKED</small></div>
+    <div class="slots rise" style="--r:3">
+      <button class="slot" type="button" aria-label="Locked game slot"><span>??</span><small>LOCKED</small></button>
+      <button class="slot" type="button" aria-label="Locked game slot"><span>??</span><small>LOCKED</small></button>
+      <button class="slot" type="button" aria-label="Locked game slot"><span>??</span><small>LOCKED</small></button>
     </div>
 
-    <div class="mesh rise flash" style="--r:3" aria-hidden="true">
+    <div class="mesh rise flash clicky" style="--r:4" title="Give it a spin" aria-hidden="true">
       <svg class="gear big main" data-teeth="14" data-outer="100" data-root="84" data-ring="62" data-hub="0" style="--t:28s;--a0:0deg;--a1:360deg"></svg>
       <svg class="gear small main" data-teeth="8" data-outer="57" data-root="47" data-ring="32" data-hub="0" data-box="63" style="--t:16s;--a0:22.5deg;--a1:-337.5deg"></svg>
     </div>
   </main>
 
-  <footer class="foot"><span>&copy; HOLLOWBLADE INDUSTRIES</span><span>ESC = MENU</span></footer>
-  <button class="snd" type="button" aria-pressed="true">SND: ON</button>
+  <div class="hud">
+    <button type="button" data-t="sfx">SFX: ON</button>
+    <button type="button" data-t="music">MUSIC: ON</button>
+  </div>
+  <footer class="foot"><span>&copy; HOLLOWBLADE INDUSTRIES</span><span id="clock">SYS --:--:--</span></footer>
   <div class="vignette" aria-hidden="true"></div>
   <div class="scan" aria-hidden="true"></div>
   <div class="wipe on" aria-hidden="true"></div>
