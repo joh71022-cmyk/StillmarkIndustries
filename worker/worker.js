@@ -50,6 +50,13 @@ export default {
 
     const kv = env.STORE;
     const url = new URL(req.url);
+    if (url.pathname === '/visit') {   // unique visitors: one count per address + browser, however often they refresh
+      const raw = (req.headers.get('CF-Connecting-IP') || 'unknown') + '|' + (req.headers.get('User-Agent') || '') + ':' + env.MOD_PASSCODE;
+      const h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)))).map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 24);
+      let n = Number(await kv.get('visit:n')) || 0, mine = Number(await kv.get('visit:' + h)) || 0;
+      if (!mine) { mine = ++n; await kv.put('visit:' + h, String(mine)); await kv.put('visit:n', String(n)); }
+      return reply({ ok: true, n, mine });
+    }
     if (url.pathname === '/poll' || url.pathname === '/poll/vote') return pollRoute(req, env, url, reply, kv);
     if (url.pathname.startsWith('/c/')) return communityRoute(req, env, url, reply, /comment/.test(url.pathname) ? await loadPolls(env) : null);
     const isUpload = url.pathname === '/upload';

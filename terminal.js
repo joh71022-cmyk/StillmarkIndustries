@@ -31,14 +31,14 @@
   }
 
   /* ---------- visit counter ---------- */
-  let visits = 1;
-  try { visits = (+localStorage.getItem('hb-visits') || 0) + 1; localStorage.setItem('hb-visits', visits); } catch (e) {}
+  // counted once per real visitor (address + browser) by the service, so refreshing never adds a visit
+  let visits = 0;
+  try { visits = +localStorage.getItem('hb-visitor') || 0; } catch (e) {}
   const foot = $('.foot');
-  if (foot) {
-    const v = document.createElement('span');
-    v.textContent = 'VISIT #' + visits;
-    foot.insertBefore(v, foot.lastElementChild);
-  }
+  const vtag = document.createElement('span');
+  if (foot) { vtag.textContent = visits ? 'VISITOR #' + visits : ''; foot.insertBefore(vtag, foot.lastElementChild); }
+  fetch((window.HB_API || 'https://hollowblade-publish.joh71022.workers.dev') + '/visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then(r => r.json()).then(j => { if (j && j.mine) { visits = j.mine; vtag.textContent = 'VISITOR #' + visits; try { localStorage.setItem('hb-visitor', visits); } catch (e) {} } }).catch(() => {});
 
   /* ---------- terminal overlay ---------- */
   const ov = document.createElement('div');
@@ -150,7 +150,7 @@
     clear() { out.textContent = ''; },
     exit() { hide(); },
     about() { lines(['STILLMARK INDUSTRIES', 'MAKERS OF ' + (S().games.map(g => g.name).join(' AND ') || 'GAMES') + '.']); },
-    whoami() { print('VISITOR #' + visits); },
+    whoami() { print(visits ? 'VISITOR #' + visits : 'VISITOR'); },
     date() { print(new Date().toString()); },
     echo(args) { print(args.join(' ')); },
     sudo() { HB.fx.err(); print('PERMISSION DENIED. NICE TRY.', 'err'); },
