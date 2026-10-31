@@ -211,6 +211,14 @@ body.gamepage { display:flex; flex-direction:column; align-items:center; padding
 .cta:hover span, .cta:focus-visible span { color:#000; }
 .cta:active { transform:scale(.97); }
 
+/* ---------- volume popup ---------- */
+.volpop { position:fixed; top:54px; right:16px; z-index:41; display:grid; gap:12px; padding:14px; background:#000; border:1px solid #666; min-width:200px; }
+.volpop[hidden] { display:none; }
+.volpop label { display:grid; gap:8px; font-size:.58rem; letter-spacing:.2em; color:var(--mid); }
+.volpop input[type=range] { width:100%; accent-color:#fff; background:transparent; }
+body.has-cur .volpop, body.has-cur .volpop * { cursor:auto; }
+@media (max-width:640px) { .volpop { top:auto; bottom:84px; right:12px; } }
+
 /* ---------- nav links, terminal ---------- */
 .top { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem 1.6rem; }
 .lk, .quick a, .quick button { font:inherit; font-size:.7rem; letter-spacing:.22em; color:var(--mid); background:none; border:0; padding:8px 0; cursor:pointer; transition:.15s; }
