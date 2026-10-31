@@ -1,35 +1,85 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvuuqkn
+// stamp: mvvxdg4p
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
     "soon": "MORE GAMES SOON",
-    "ticker": "/// HOLLOW BLADE IS IN DEVELOPMENT /// JOIN THE DISCORD FOR UPDATES /// NEW GAMES INCOMING /// GEARS: TURNING /// BLADES: SHARPENED /// STATUS: ONLINE "
+    "ticker": "/// HOLLOW BLADE IS IN DEVELOPMENT /// JOIN THE DISCORD FOR UPDATES /// NEW GAMES INCOMING /// GEARS: TURNING /// BLADES: SHARPENED /// STATUS: ONLINE ",
+    "announce": "",
+    "announceUrl": "",
+    "announceTone": "info",
+    "footer": "",
+    "enterLabel": "",
+    "fxScan": true,
+    "fxDust": true,
+    "fxVignette": true,
+    "fxCursor": true,
+    "fxGrid": true
   },
   "games": [
     {
       "id": "info-exe",
       "name": "INFO.EXE",
-      "info": [],
       "blurb": "",
       "tagline": "",
       "status": "",
       "icon": "uploads/info-exe-icon-7faed034.jpg",
+      "info": [],
       "buttons": [],
+      "banner": "",
+      "accent": "",
+      "accentHex": "",
+      "width": "normal",
+      "bg": "default",
+      "hideGear": false,
+      "showTitle": true,
+      "subtitle": "",
       "blocks": [
         {
           "type": "text",
-          "text": "There are no current games at the moment we are developing games right now once we get far enough we will make a page\n\nGAME Names:\nTHE HOLLOW AFTER DARK\nHollowBlade"
+          "text": "There are no current games at the moment we are developing games right now once we get far enough we will make a page\n\nGAME Names:\nTHE HOLLOW AFTER DARK\nHollowBlade",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
         },
         {
           "type": "image",
-          "src": "uploads/info-exe-b1-src-a1e6ce6e.jpg",
+          "src": "https://github.com/joh71022-cmyk/StillmarkIndustries/releases/download/downloads/mvvwu8vv-Stillmark-Industries.gif",
           "caption": "",
-          "size": "full"
+          "size": "full",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        },
+        {
+          "type": "devs",
+          "title": "THE TEAM",
+          "look": "plain",
+          "align": "center",
+          "width": "full",
+          "anim": "fade",
+          "show": "all"
+        },
+        {
+          "type": "comments",
+          "title": "COMMENTS",
+          "ratings": false,
+          "uid": "o58n47td",
+          "rev": "0",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
         }
       ]
     }
   ],
+  "pages": [],
   "devs": [
     {
       "name": "UnknownService",
