@@ -145,6 +145,8 @@
     } catch (e) {}
     return '';
   }
+  // a video file (MP4 or WebM) that a visitor's browser can play directly
+  const isVideoFile = u => { try { const x = new URL(u); return x.protocol === 'https:' && /\.(mp4|webm|m4v|ogv)$/i.test(decodeURIComponent(x.pathname)); } catch (e) { return false; } };
   function embedUrl(u) {
     try {
       const x = new URL(u), h = x.hostname.replace(/^www\./, '');
@@ -261,13 +263,23 @@
         b.images.forEach((src, i) => { const btn = el('button', 'bk-thumb'); btn.type = 'button'; btn.style.backgroundImage = cssUrl(src); btn.setAttribute('aria-label', 'View picture ' + (i + 1)); btn.addEventListener('click', () => lightbox(list, i)); d.append(btn); });
         return d;
       } },
-    video: { label: 'VIDEO', group: 'MEDIA', help: 'A YouTube or Vimeo video. Just paste the link.',
-      defaults: () => ({ url: '', caption: '' }),
-      fields: [{ k: 'url', label: 'VIDEO LINK', type: 'text', max: 400, ph: 'https://www.youtube.com/watch?v=...' }, { k: 'caption', label: 'CAPTION (OPTIONAL)', type: 'text', max: 200 }],
+    video: { label: 'VIDEO', group: 'MEDIA', help: 'A video: upload an MP4 or WebM file here, or paste a YouTube or Vimeo link.',
+      defaults: () => ({ url: '', poster: '', autoplay: false, caption: '' }),
+      fields: [{ k: 'url', label: 'VIDEO FILE OR LINK', type: 'file', accept: 'video/mp4,video/webm,.mp4,.webm,.m4v,.ogv', videoOnly: true, unique: true, noSize: true, hint: 'UPLOAD AN MP4 OR WEBM (UP TO 95 MB), OR PASTE A YOUTUBE / VIMEO LINK.' },
+        { k: 'poster', label: 'COVER PICTURE (OPTIONAL, FOR UPLOADED VIDEOS)', type: 'image', max: 1400 },
+        { k: 'autoplay', label: 'PLAY BY ITSELF, SILENT AND ON REPEAT (LIKE A GIF)', type: 'check' },
+        { k: 'caption', label: 'CAPTION (OPTIONAL)', type: 'text', max: 200 }],
       render: b => {
-        const d = el('figure', 'bk-video'), src = videoEmbed(b.url);
-        if (!src) { d.append(el('div', 'bk-empty', b.url ? 'THAT VIDEO LINK IS NOT SUPPORTED (USE YOUTUBE OR VIMEO)' : 'NO VIDEO YET')); return d; }
-        d.append(frame(src, 'r169')); if (b.caption) d.append(el('figcaption', '', b.caption)); return d;
+        const d = el('figure', 'bk-video' + (b.autoplay ? ' silent' : '')), yt = videoEmbed(b.url);
+        if (yt) { d.append(frame(yt, 'r169')); if (b.caption) d.append(el('figcaption', '', b.caption)); return d; }
+        if (isVideoFile(b.url)) {
+          const v = document.createElement('video');
+          v.src = b.url; v.preload = b.autoplay ? 'auto' : 'metadata'; v.playsInline = true; v.setAttribute('playsinline', '');
+          if (b.poster) v.poster = b.poster;
+          if (b.autoplay) { v.autoplay = true; v.muted = true; v.loop = true; v.controls = false; } else v.controls = true;
+          d.append(v); if (b.caption) d.append(el('figcaption', '', b.caption)); return d;
+        }
+        d.append(el('div', 'bk-empty', b.url && b.url !== '#' ? 'THAT VIDEO LINK IS NOT SUPPORTED (UPLOAD AN MP4 / WEBM, OR USE YOUTUBE OR VIMEO)' : 'NO VIDEO YET')); return d;
       } },
     audio: { label: 'AUDIO PLAYER', group: 'MEDIA', help: 'A music or sound player. Paste a link to an MP3, OGG or WAV file.',
       defaults: () => ({ title: 'SOUNDTRACK', url: '', loop: false }),

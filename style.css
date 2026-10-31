@@ -550,3 +550,7 @@ body.no-scan .scan { display:none; } body.no-vig .vignette { display:none; } bod
 /* ================= builder additions ================= */
 .bld-style { border:1px dashed #555; padding:8px 10px; } .bld-style summary { cursor:pointer; font-size:.56rem; letter-spacing:.2em; color:var(--mid); } .bld-style[open] { display:grid; gap:10px; }
 .bld label.chk { display:flex; align-items:center; gap:10px; font-size:.58rem; letter-spacing:.18em; color:var(--mid); }
+
+/* video files and silent loops */
+.bk-video video { display:block; width:100%; max-height:70vh; background:#000; border:2px solid #444; }
+.bk-video.silent video { pointer-events:none; }

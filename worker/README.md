@@ -69,3 +69,22 @@ no mod code is needed to vote.
 - **Limits (free plan).** Each vote uses 2 of Cloudflare KV's 1,000 free writes per day, so about 500 votes a day.
   Two votes at the very same instant can occasionally count as one. That is fine for a community site.
 - Like the upload feature, polls need the `STORE` KV binding.
+
+## Fast publishing (live in seconds)
+
+A website on GitHub Pages normally takes 30-90 seconds to rebuild after every change. To avoid that wait, the
+service keeps a **live copy** of your site content in its KV storage and serves it at `/site-data.js`.
+Every page loads that first, and falls back to the copy saved in GitHub if the service is unreachable.
+
+- Publishing writes the live copy first (visitors see changes within about 10 seconds; the mod panel sees them at once),
+  then saves the permanent copy in GitHub as a backup. Pictures are saved in parallel and load from GitHub's file server.
+- **Hand-editing `site-data.js` on GitHub?** The live copy will not notice. In the mod panel open PUBLISH and click
+  **SYNC FROM GITHUB**, which copies the GitHub version into the live copy.
+- Costs: one KV read per page view (cached 10 seconds), well inside the free plan for a small site.
+
+## GIFs and video files
+
+- **GIFs** keep their animation: they are uploaded as they are (not shrunk) and used as a picture link.
+- **Video**: upload an **MP4 or WebM** (up to 95 MB) in a Video element; it plays on the page, optionally on
+  silent repeat like a GIF. Other formats (MOV, AVI, MKV) do not play in browsers, so convert them first.
+- Both are stored in the **downloads** GitHub release, like game downloads.

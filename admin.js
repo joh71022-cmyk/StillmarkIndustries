@@ -72,7 +72,7 @@
     render();
     // start from what is really published, so an old cached page can never overwrite newer changes
     if (!window.SITE_IS_DRAFT && window.hbClean) {
-      fetch(LIVE_BASE + 'site-data.js?fresh=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(txt => {
+      fetch((pubUrl() ? pubUrl().replace(/\/$/, '') + '/' : LIVE_BASE) + 'site-data.js?fresh=' + Date.now(), { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error('none'); return r.text(); }).catch(() => fetch(LIVE_BASE + 'site-data.js?fresh=' + Date.now(), { cache: 'no-store' }).then(r => r.text())).then(txt => {
         const i = txt.indexOf('window.SITE_DATA = ');
         const raw = JSON.parse(txt.slice(txt.indexOf('{', i), txt.lastIndexOf('}') + 1));
         if (editing || dirty) return;
@@ -171,7 +171,7 @@
         const file = h('input', { id, type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
         file.addEventListener('change', async () => {
           const fl = file.files[0]; if (!fl) return;
-          try { val = await shrink(fl, f.max || 320); cleared = false; paint(); HB.fx.buy(); }
+          try { if (fl.type === 'image/gif') note.textContent = 'UPLOADING THE GIF...'; val = await pickImage(fl, f.max || 320, p => { note.textContent = 'UPLOADING THE GIF... ' + Math.round(p * 100) + '%'; }); cleared = false; paint(); HB.fx.buy(); }
           catch (e) { note.textContent = 'ERROR: ' + e.message; HB.fx.err(); }
           file.value = '';
         });
@@ -263,9 +263,17 @@
       x.send(file);
     });
   }
+  // animated GIFs must not be flattened by shrinking, so they are uploaded as they are and kept as a link
+  async function pickImage(file, max, onProgress) {
+    if (file.type === 'image/gif') {
+      const named = new File([file], Date.now().toString(36) + '-' + file.name, { type: 'image/gif' });
+      return (await uploadFile(named, onProgress)).url;
+    }
+    return shrink(file, max);
+  }
   function openBuilder(g) {
     loadBuilder().then(() => {
-      editing = () => window.HBBuilder.create(g, { h, btn, HB, shrink, uploadFile, touch, isPage: (data.pages || []).includes(g), back: () => { editing = null; saveDraft(); render(); } });
+      editing = () => window.HBBuilder.create(g, { h, btn, HB, shrink, pickImage, uploadFile, touch, isPage: (data.pages || []).includes(g), back: () => { editing = null; saveDraft(); render(); } });
       tab = (data.pages || []).includes(g) ? 'pages' : 'games'; render();
     }).catch(e => { status.textContent = e.message; HB.fx.err(); });
   }
@@ -413,14 +421,16 @@
   // after saving to GitHub the site takes a minute or so to rebuild. Watch for our stamp so we can say when it is truly live.
   const LIVE_BASE = /github\.io$/.test(location.hostname) ? '' : 'https://joh71022-cmyk.github.io/StillmarkIndustries/';
   async function waitLive(stamp, say) {
-    const t0 = Date.now();
+    const t0 = Date.now(), fast = pubUrl() ? pubUrl().replace(/\/$/, '') + '/' : '';
     while (Date.now() - t0 < 180000) {
-      try {
-        const txt = await (await fetch(LIVE_BASE + 'site-data.js?live=' + Date.now(), { cache: 'no-store' })).text();
-        if (txt.includes('stamp: ' + stamp)) return true;
-      } catch (e) {}
-      say('SAVED ON GITHUB. WAITING FOR THE LIVE SITE TO UPDATE... ' + Math.round((Date.now() - t0) / 1000) + 'S');
-      await new Promise(r => setTimeout(r, 4000));
+      for (const base of [fast, LIVE_BASE].filter((x, i, all) => x !== undefined && all.indexOf(x) === i)) {
+        try {
+          const txt = await (await fetch((base || '') + 'site-data.js?live=' + Date.now(), { cache: 'no-store' })).text();
+          if (txt.includes('stamp: ' + stamp)) return true;
+        } catch (e) {}
+      }
+      say('SAVED. WAITING FOR IT TO GO LIVE... ' + Math.round((Date.now() - t0) / 1000) + 'S');
+      await new Promise(r => setTimeout(r, 1500));
     }
     return false;
   }
@@ -474,8 +484,11 @@
         try { await callService({ action: 'forget' }); } catch (e) {}
         paintSetup('YOU CAN ADD A NEW TOKEN NOW.');
       });
-      box.append(...head(), h('h4', {}, 'PUBLISH'), msg,
-        h('div', { class: 'adm-btns' }, btn('PUBLISH', publish, 'big'), forget,
+      box.append(...head(), h('h4', {}, 'PUBLISH'), h('p', { class: 'adm-note' }, 'PUBLISHING IS FAST NOW: IT GOES LIVE IN A FEW SECONDS. "SYNC FROM GITHUB" IS ONLY NEEDED IF SOMEONE EDITED site-data.js BY HAND ON GITHUB.'), msg,
+        h('div', { class: 'adm-btns' }, btn('PUBLISH', publish, 'big'), btn('SYNC FROM GITHUB', async () => {
+          say('COPYING THE SITE DATA FROM GITHUB TO THE LIVE COPY...', true);
+          try { const r = await callService({ action: 'import' }); if (!r.ok) throw new Error(r.error || 'THE PUBLISH SERVICE SAID ' + r.status); say('DONE. THE LIVE SITE NOW MATCHES WHAT IS IN GITHUB.', true); HB.fx.ok(); } catch (e) { say('FAILED: ' + e.message); HB.fx.err(); }
+        }), forget,
           PUBLISH_URL ? null : btn('STOP USING THE SERVICE', () => { try { localStorage.removeItem('hb-pub-url'); } catch (e) {} render(); })));
     };
 

@@ -49,12 +49,13 @@
       const paint = () => {
         const v = get();
         prev.style.backgroundImage = v ? 'url("' + v.replace(/"/g, '%22') + '")' : ''; prev.classList.toggle('empty', !v);
-        note.textContent = v ? (/^data:/.test(v) ? 'NEW PICTURE (UPLOADED WHEN YOU PUBLISH)' : 'PICTURE SET') : 'NO PICTURE';
+        note.textContent = v ? (/^data:/.test(v) ? 'NEW PICTURE (UPLOADED WHEN YOU PUBLISH)' : /\.gif($|\?)/i.test(v) ? 'ANIMATED GIF SET' : 'PICTURE SET') : 'NO PICTURE. PNG, JPG, WEBP, OR A GIF (KEEPS ITS ANIMATION).';
       };
       const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
       file.addEventListener('change', async () => {
         if (!file.files[0]) return;
-        try { set(await kit.shrink(file.files[0], max || 1400)); HB.fx.buy(); paint(); tick(); } catch (e) { note.textContent = 'ERROR: ' + e.message; HB.fx.err(); }
+        const isGif = file.files[0].type === 'image/gif'; if (isGif) note.textContent = 'UPLOADING THE GIF...';
+        try { set(await kit.pickImage(file.files[0], max || 1400, p => { note.textContent = 'UPLOADING THE GIF... ' + Math.round(p * 100) + '%'; })); HB.fx.buy(); paint(); tick(); } catch (e) { note.textContent = 'ERROR: ' + e.message; HB.fx.err(); }
         file.value = '';
       });
       const url = h('input', { type: 'text', placeholder: 'OR PASTE A PICTURE LINK (https://...)', autocomplete: 'off' });
@@ -74,32 +75,34 @@
       };
       const file = h('input', { type: 'file', multiple: 'true', accept: 'image/png,image/jpeg,image/webp,image/gif' });
       file.addEventListener('change', async () => {
-        for (const f of [...file.files]) { try { b[k].push(await kit.shrink(f, max || 1400)); } catch (e) { note.textContent = 'ERROR: ' + e.message; HB.fx.err(); } }
+        for (const f of [...file.files]) { try { if (f.type === 'image/gif') note.textContent = 'UPLOADING ' + f.name + '...'; b[k].push(await kit.pickImage(f, max || 1400, p => { note.textContent = 'UPLOADING ' + f.name + '... ' + Math.round(p * 100) + '%'; })); } catch (e) { note.textContent = 'ERROR: ' + e.message; HB.fx.err(); } }
         file.value = ''; HB.fx.buy(); paint(); tick();
       });
       paint();
       return h('div', { class: 'adm-img' }, strip, file, note);
     }
 
-    function fileControl(b, rebuild) {
+    function fileControl(b, f, rebuild) {
       const note = h('small', { class: 'adm-hint' }), bar = h('div', { class: 'bld-bar', hidden: 'true' }, h('i'));
-      const paint = () => { note.textContent = b.file && b.file !== '#' ? 'FILE: ' + B.fileLabel(b.file) + (b.size ? '  (' + b.size + ')' : '') : 'NO FILE YET. UPLOAD ONE OR PASTE A LINK.'; };
-      const file = h('input', { type: 'file' });
+      const paint = () => { const v = b[f.k]; note.textContent = v && v !== '#' ? (/github\.com|githubusercontent\.com/.test(v) ? 'FILE: ' + B.fileLabel(v) : 'LINK: ' + v.replace(/^https?:\/\//, '').slice(0, 60)) + (f.sizeKey && b[f.sizeKey] ? '  (' + b[f.sizeKey] + ')' : '') : 'NOTHING YET. UPLOAD A FILE OR PASTE A LINK.'; };
+      const file = h('input', Object.assign({ type: 'file' }, f.accept ? { accept: f.accept } : {}));
       file.addEventListener('change', async () => {
-        const f = file.files[0]; if (!f) return;
-        bar.hidden = false; bar.firstChild.style.width = '0%'; note.textContent = 'UPLOADING ' + f.name + '...';
+        let up = file.files[0]; if (!up) return;
+        if (f.videoOnly && !/\.(mp4|webm|m4v|ogv)$/i.test(up.name)) { note.textContent = 'BROWSERS PLAY MP4 OR WEBM VIDEO. CONVERT YOUR FILE FIRST (FOR EXAMPLE WITH HANDBRAKE OR AN ONLINE CONVERTER), THEN UPLOAD IT.'; HB.fx.err(); file.value = ''; return; }
+        if (f.unique) up = new File([up], Date.now().toString(36) + '-' + up.name, { type: up.type });   // a fresh name so it never replaces another file
+        bar.hidden = false; bar.firstChild.style.width = '0%'; note.textContent = 'UPLOADING ' + up.name + '...';
         try {
-          const r = await kit.uploadFile(f, p => { bar.firstChild.style.width = Math.round(p * 100) + '%'; note.textContent = 'UPLOADING ' + f.name + '... ' + Math.round(p * 100) + '%'; });
-          b.file = r.url; b.size = fmtSize(r.size || f.size); if (!b.platform && /\.(exe|msi)$/i.test(f.name)) b.platform = 'Windows';
+          const r = await kit.uploadFile(up, p => { bar.firstChild.style.width = Math.round(p * 100) + '%'; note.textContent = 'UPLOADING ' + up.name + '... ' + Math.round(p * 100) + '%'; });
+          b[f.k] = r.url; if (f.sizeKey) b[f.sizeKey] = fmtSize(r.size || up.size); if (f.sizeKey && !b.platform && /\.(exe|msi)$/i.test(up.name)) b.platform = 'Windows';
           HB.fx.ach(); paint(); tick(); if (rebuild) rebuild();
         } catch (e) { note.textContent = 'UPLOAD FAILED: ' + e.message; HB.fx.err(); }
         bar.hidden = true; file.value = '';
       });
       const url = h('input', { type: 'text', placeholder: 'OR PASTE A DOWNLOAD LINK (https://...)', autocomplete: 'off' });
-      url.addEventListener('change', () => { const u = url.value.trim(); if (/^https?:\/\/\S+$/i.test(u)) { b.file = u; paint(); tick(); } else if (u) { note.textContent = 'LINK MUST START WITH https://'; HB.fx.err(); } });
+      url.addEventListener('change', () => { const u = url.value.trim(); if (/^https?:\/\/\S+$/i.test(u)) { b[f.k] = u; paint(); tick(); if (rebuild && !f.sizeKey) rebuild(); } else if (u) { note.textContent = 'LINK MUST START WITH https://'; HB.fx.err(); } });
       paint();
-      return h('div', { class: 'adm-img' }, file, bar, url, btn('REMOVE FILE', () => { b.file = ''; b.size = ''; paint(); tick(); }), note,
-        h('small', { class: 'adm-hint' }, 'FILES UP TO 95 MB. ZIP, EXE, APK, DMG, PDF, MP3, MP4 AND SIMILAR. FOR BIGGER FILES PASTE A LINK.'));
+      return h('div', { class: 'adm-img' }, file, bar, url, btn('REMOVE', () => { b[f.k] = ''; if (f.sizeKey) b[f.sizeKey] = ''; paint(); tick(); }), note,
+        h('small', { class: 'adm-hint' }, f.hint || 'FILES UP TO 95 MB. ZIP, EXE, APK, DMG, PDF, MP3, MP4 AND SIMILAR. FOR BIGGER FILES PASTE A LINK.'));
     }
 
     function field(b, f, rebuild) {
@@ -108,11 +111,12 @@
       let ctl;
       if (f.type === 'text' || f.type === 'url') { ctl = h('input', { id, type: 'text', autocomplete: 'off', placeholder: f.ph || '' }); ctl.value = b[f.k] || ''; ctl.addEventListener('input', () => { b[f.k] = ctl.value.slice(0, f.max || 300); tick(); }); }
       else if (f.type === 'area') { ctl = h('textarea', { id, rows: f.rows || 4 }); ctl.value = b[f.k] || ''; ctl.addEventListener('input', () => { b[f.k] = ctl.value; tick(); }); }
+      else if (f.type === 'check') { ctl = h('input', { id, type: 'checkbox' }); ctl.checked = !!b[f.k]; ctl.addEventListener('change', () => { b[f.k] = ctl.checked; tick(); }); return h('div', { class: 'bld-field' }, h('label', { for: id, class: 'chk' }, ctl, f.label)); }
       else if (f.type === 'select') { ctl = h('select', { id }, f.options.map(o => h('option', { value: o }, o.toUpperCase()))); ctl.value = b[f.k]; ctl.addEventListener('change', () => { b[f.k] = ctl.value; tick(); }); }
       else if (f.type === 'lines') { const L = B.lines[f.lines]; ctl = h('textarea', { id, rows: f.rows || 4 }); ctl.value = L.fmt(b[f.k] || []); ctl.addEventListener('input', () => { b[f.k] = L.parse(ctl.value); tick(); }); }
       else if (f.type === 'image') return h('div', { class: 'adm-img' }, h('span', { class: 'adm-lbl' }, f.label), imageControl(() => b[f.k], v => { b[f.k] = v; }, f.max));
       else if (f.type === 'images') return h('div', { class: 'adm-img' }, h('span', { class: 'adm-lbl' }, f.label), imagesControl(b, f.k, f.max));
-      else if (f.type === 'file') return h('div', { class: 'adm-img' }, h('span', { class: 'adm-lbl' }, f.label), fileControl(b, rebuild));
+      else if (f.type === 'file') return h('div', { class: 'adm-img' }, h('span', { class: 'adm-lbl' }, f.label), fileControl(b, f, rebuild));
       const hint = f.hint || (f.type === 'lines' ? B.lines[f.lines].hint : '');
       return h('div', { class: 'bld-field' }, label(f.label), ctl, hint ? h('small', { class: 'adm-hint' }, hint) : null);
     }

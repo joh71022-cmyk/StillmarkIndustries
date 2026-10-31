@@ -6,6 +6,7 @@
 //   POST /          JSON  - status / setup / forget / publish (site-data.js and pictures in uploads/ only)
 //   POST /upload    file  - a game download, streamed into a GitHub Release called "downloads"
 //   GET /poll?id=.. and POST /poll/vote  - public voting for polls and ratings (no mod code; one vote per person)
+//   GET /site-data.js  - the live site content, served instantly from the service (pages fall back to the copy in GitHub)
 //
 // Needs:  Secret    MOD_PASSCODE   the mod code (the same thing typed after "mod pas")
 //         Variable  REPO           e.g. joh71022-cmyk/StillmarkIndustries
@@ -14,7 +15,7 @@
 // Optional: Secret  GITHUB_TOKEN   if you would rather paste the token in Cloudflare than in the panel.
 
 const OK_PATH = /^(site-data\.js|uploads\/[\w.\-]{1,80}\.(png|jpg|jpeg|webp|gif))$/;
-const OK_FILE = /^[\w][\w.\-]{0,100}\.(zip|7z|rar|exe|msi|apk|dmg|pkg|deb|appimage|tar|gz|tgz|xz|pdf|txt|md|mp3|ogg|wav|flac|mp4|webm|png|jpg|jpeg|gif|webp|unitypackage|blend|psd)$/i;
+const OK_FILE = /^[\w][\w.\-]{0,100}\.(zip|7z|rar|exe|msi|apk|dmg|pkg|deb|appimage|tar|gz|tgz|xz|pdf|txt|md|mp3|ogg|wav|flac|mp4|webm|m4v|ogv|png|jpg|jpeg|gif|webp|unitypackage|blend|psd)$/i;
 const B64 = /^[A-Za-z0-9+\/]+={0,2}$/;
 const TOKEN_RE = /^(github_pat_|ghp_|gho_|ghu_|ghs_)[A-Za-z0-9_]{20,}$/;
 const MAX_FILES = 12;
@@ -39,6 +40,7 @@ export default {
 
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const path0 = new URL(req.url).pathname;
+    if (req.method === 'GET' && path0 === '/site-data.js') return siteDataRoute(req, env);
     if (req.method !== 'POST' && !(req.method === 'GET' && path0 === '/poll')) return reply({ ok: false, error: 'POST ONLY' }, 405);
     if (!allowed) return reply({ ok: false, error: 'ORIGIN NOT ALLOWED' }, 403);
     if (!env.MOD_PASSCODE || !env.REPO) return reply({ ok: false, error: 'SERVICE IS NOT SET UP YET (MISSING MOD_PASSCODE OR REPO)' }, 500);
@@ -79,7 +81,7 @@ export default {
       const token = await getToken();
       if (!token) return reply({ ok: false, needSetup: true, error: 'NO GITHUB TOKEN SAVED YET. ADD IT ONCE IN THE PANEL.' }, 400);
       const name = (url.searchParams.get('name') || '').trim().replace(/\s+/g, '-');
-      if (!OK_FILE.test(name)) return reply({ ok: false, error: 'THAT FILE NAME OR TYPE IS NOT ALLOWED. USE ZIP, 7Z, RAR, EXE, MSI, APK, DMG, PDF, MP3, MP4 AND SIMILAR, WITH LETTERS, NUMBERS, DASHES AND DOTS ONLY.' }, 400);
+      if (!OK_FILE.test(name)) return reply({ ok: false, error: 'THAT FILE NAME OR TYPE IS NOT ALLOWED. USE ZIP, 7Z, RAR, EXE, MSI, APK, DMG, PDF, MP3, MP4, WEBM, GIF AND SIMILAR, WITH LETTERS, NUMBERS, DASHES AND DOTS ONLY.' }, 400);
       const len = Number(req.headers.get('Content-Length')) || 0;
       if (!len) return reply({ ok: false, error: 'THE FILE IS EMPTY OR ITS SIZE IS UNKNOWN' }, 400);
       if (len > MAX_UPLOAD) return reply({ ok: false, error: 'FILE IS TOO BIG (LIMIT 95 MB). PASTE A LINK TO IT INSTEAD, FOR EXAMPLE FROM GOOGLE DRIVE OR MEGA.' }, 413);
@@ -110,7 +112,18 @@ export default {
     const action = body.action || (body.files ? 'publish' : 'status');
 
     /* ---- status: is a token saved yet? ---- */
-    if (action === 'status') return reply({ ok: true, tokenSet: !!(await getToken()), canStoreToken: !!kv, uploads: true });
+    if (action === 'status') return reply({ ok: true, tokenSet: !!(await getToken()), canStoreToken: !!kv, uploads: true, fast: !!kv });
+
+    /* ---- import: copy the site data that is in GitHub into the live copy (use after editing it by hand) ---- */
+    if (action === 'import') {
+      if (!kv) return reply({ ok: false, error: 'THE SERVICE HAS NO STORAGE YET (KV).' }, 500);
+      const raw = await fetch('https://raw.githubusercontent.com/' + env.REPO + '/main/site-data.js?x=' + Date.now(), { headers: { 'User-Agent': 'stillmark-import' } });
+      if (!raw.ok) return reply({ ok: false, error: 'COULD NOT READ site-data.js FROM GITHUB (' + raw.status + ')' }, 502);
+      const rec = makeRecord(await raw.text(), env);
+      if (!rec) return reply({ ok: false, error: 'THE site-data.js IN GITHUB LOOKS BROKEN' }, 400);
+      await kv.put('site_data', JSON.stringify(rec)); await caches.default.delete(new Request(new URL('/site-data.js', req.url).href));
+      return reply({ ok: true, stamp: rec.stamp });
+    }
 
     /* ---- setup: save the token once ---- */
     if (action === 'setup') {
@@ -150,21 +163,65 @@ export default {
 
     const hdr = { ...ghHeaders(token), 'Content-Type': 'application/json' };
     const message = String(body.message || 'Update site content via mod panel').slice(0, 100);
-    for (const f of files) {
-      const api = 'https://api.github.com/repos/' + env.REPO + '/contents/' + f.path;
-      let sha;
-      const cur = await fetch(api, { headers: hdr });
-      if (cur.ok) sha = (await cur.json()).sha;
-      else if (cur.status !== 404) return reply({ ok: false, badToken: cur.status === 401, error: 'GITHUB SAID ' + cur.status + ' WHEN READING ' + f.path + (cur.status === 401 ? ' (THE SAVED TOKEN EXPIRED OR WAS REVOKED. ADD A NEW ONE.)' : '') }, 502);
-      const put = await fetch(api, { method: 'PUT', headers: hdr, body: JSON.stringify({ message, content: f.content, sha }) });
-      if (!put.ok) {
-        let why = ''; try { why = (await put.json()).message || ''; } catch (e) {}
-        return reply({ ok: false, badToken: put.status === 401 || put.status === 403, error: 'GITHUB SAID ' + put.status + ' WHEN SAVING ' + f.path + (why ? ': ' + why : '') }, 502);
+    const apiOf = f => 'https://api.github.com/repos/' + env.REPO + '/contents/' + f.path;
+    const problem = async (res, what) => {
+      let why = ''; try { why = (await res.json()).message || ''; } catch (e) {}
+      return reply({ ok: false, badToken: res.status === 401 || res.status === 403, error: 'GITHUB SAID ' + res.status + ' WHEN ' + what + (why ? ': ' + why : '') + (res.status === 401 ? ' (THE SAVED TOKEN EXPIRED OR WAS REVOKED. ADD A NEW ONE.)' : '') }, 502);
+    };
+    const dataFile = files.find(f => f.path === 'site-data.js'), pics = files.filter(f => f.path !== 'site-data.js');
+    // start looking up the data file's current version right away, while the pictures save
+    const shaLookup = dataFile ? fetch(apiOf(dataFile), { headers: hdr }) : null;
+    // pictures have names made from their content, so they are new files: no lookup needed, and they save side by side
+    const saved = await Promise.all(pics.map(async f => {
+      let res = await fetch(apiOf(f), { method: 'PUT', headers: hdr, body: JSON.stringify({ message, content: f.content }) });
+      if (res.status === 422 || res.status === 409) {   // already there under the same name: save over it
+        const cur = await fetch(apiOf(f), { headers: hdr });
+        if (cur.ok) res = await fetch(apiOf(f), { method: 'PUT', headers: hdr, body: JSON.stringify({ message, content: f.content, sha: (await cur.json()).sha }) });
       }
+      return [f, res];
+    }));
+    for (const [f, res] of saved) if (!res.ok) return problem(res, 'SAVING ' + f.path);
+    if (dataFile) {
+      // 1) the live copy goes out at once  2) the permanent copy is saved in GitHub
+      const text = new TextDecoder().decode(Uint8Array.from(atob(dataFile.content), c => c.charCodeAt(0)));
+      const rec = makeRecord(text, env);
+      if (!rec) return reply({ ok: false, error: 'site-data.js LOOKS BROKEN' }, 400);
+      if (kv) { await kv.put('site_data', JSON.stringify(rec)); await caches.default.delete(new Request(new URL('/site-data.js', req.url).href)); }
+      const cur = await shaLookup;
+      let sha;
+      if (cur.ok) sha = (await cur.json()).sha; else if (cur.status !== 404) return problem(cur, 'READING site-data.js');
+      const put = await fetch(apiOf(dataFile), { method: 'PUT', headers: hdr, body: JSON.stringify({ message, content: dataFile.content, sha }) });
+      if (!put.ok) return problem(put, 'SAVING site-data.js');
     }
     return reply({ ok: true, saved: files.map(f => f.path) });
   }
 };
+
+/* ---------- the live copy of the site data ---------- */
+// turns the text of site-data.js into the record we keep and serve. Pictures saved in GitHub's uploads folder are
+// pointed at GitHub's file server, which has them the moment they are saved (the website itself takes a minute to rebuild).
+function makeRecord(text, env) {
+  const i = text.indexOf('window.SITE_DATA = ');
+  if (i < 0) return null;
+  let data; try { data = JSON.parse(text.slice(text.indexOf('{', i), text.lastIndexOf('}') + 1)); } catch (e) { return null; }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const stamp = ((/stamp: (\w+)/.exec(text)) || [])[1] || String(Date.now());
+  const json = JSON.stringify(data).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029').replace(/"uploads\//g, '"https://raw.githubusercontent.com/' + env.REPO + '/main/uploads/');
+  return { stamp, js: '// stamp: ' + stamp + '\nwindow.SITE_DATA = ' + json + ';\n' };
+}
+
+async function siteDataRoute(req, env) {
+  const h = { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=10', 'Access-Control-Allow-Origin': '*' };
+  const url = new URL(req.url), kv = env.STORE;
+  const bust = url.searchParams.has('fresh') || url.searchParams.has('live');   // the mod panel asks for the newest, skipping the short cache
+  const key = new Request(url.origin + '/site-data.js');
+  if (!bust) { const hit = await caches.default.match(key); if (hit) return hit; }
+  let rec = null; try { rec = kv ? JSON.parse((await kv.get('site_data')) || 'null') : null; } catch (e) {}
+  if (!rec || !rec.js) return new Response('/* no live copy on the service yet; pages use the copy saved in GitHub */', { status: 404, headers: { ...h, 'Cache-Control': 'no-store' } });
+  const res = new Response(rec.js, { headers: h });
+  if (!bust) await caches.default.put(key, res.clone());
+  return res;
+}
 
 /* ---------- public voting for polls and ratings ---------- */
 const POLL_ID = /^[a-z0-9][a-z0-9-]{0,40}\.[a-z0-9]{4,20}\.\d{1,4}$/;
@@ -174,9 +231,14 @@ async function loadPolls(env) {
   const cache = caches.default, key = new Request('https://polls.internal/' + env.REPO);
   let res = await cache.match(key);
   if (!res) {
-    const raw = await fetch('https://raw.githubusercontent.com/' + env.REPO + '/main/site-data.js', { headers: { 'User-Agent': 'stillmark-polls' } });
-    if (!raw.ok) return null;
-    const text = await raw.text(), i = text.indexOf('window.SITE_DATA = ');
+    let text = '';
+    try { const rec = env.STORE ? JSON.parse((await env.STORE.get('site_data')) || 'null') : null; if (rec && rec.js) text = rec.js; } catch (e) {}
+    if (!text) {
+      const raw = await fetch('https://raw.githubusercontent.com/' + env.REPO + '/main/site-data.js', { headers: { 'User-Agent': 'stillmark-polls' } });
+      if (!raw.ok) return null;
+      text = await raw.text();
+    }
+    const i = text.indexOf('window.SITE_DATA = ');
     let data; try { data = JSON.parse(text.slice(text.indexOf('{', i), text.lastIndexOf('}') + 1)); } catch (e) { return null; }
     const polls = {};
     for (const owner of [...(data.games || []), ...(data.pages || [])]) {
@@ -186,7 +248,7 @@ async function loadPolls(env) {
         }
       }
     }
-    res = new Response(JSON.stringify(polls), { headers: { 'Cache-Control': 'max-age=60' } });
+    res = new Response(JSON.stringify(polls), { headers: { 'Cache-Control': 'max-age=20' } });
     await cache.put(key, res.clone());
   }
   return res.json();
