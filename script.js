@@ -246,14 +246,10 @@
     });
   });
 
-  /* ---------- discord banner ---------- */
-  const discord = $('[data-discord]');
-  if (discord) discord.addEventListener('click', () => { sfx('discord'); toast('OPENING DISCORD...'); });
-
-  /* ---------- placeholder links (href="#") just say "coming soon" ---------- */
-  $$('a[data-itch]').forEach(a => a.addEventListener('click', e => {
-    if (a.getAttribute('href') === '#') { e.preventDefault(); sfx('deny'); toast('ITCH.IO PAGE COMING SOON'); }
-    else { sfx('discord'); toast('OPENING ITCH.IO...'); }
+  /* ---------- external links: sound + toast; "#" means not set up yet ---------- */
+  $$('a[data-ext]').forEach(a => a.addEventListener('click', e => {
+    if (a.getAttribute('href') === '#') { e.preventDefault(); sfx('deny'); toast('LINK COMING SOON'); }
+    else { sfx('discord'); toast('OPENING LINK...'); }
   }));
 
   /* ---------- page transitions ---------- */
@@ -289,7 +285,7 @@
     if (keys.join(' ') === KONAMI || keys.slice(-6).join('').toLowerCase() === 'hollow') { keys = []; toggleOverdrive(); }
     if (e.repeat) return;
     if (finishBoot()) { e.preventDefault(); return; }
-    if ($('.term-ov:not([hidden])')) return;
+    if ($('.term-ov:not([hidden]), .adm:not([hidden])')) return;
     const page = body.classList;
     const focused = document.activeElement && document.activeElement.closest ? document.activeElement.closest('a, button') : null;
     if (page.contains('menu') && e.key === 'Enter' && !focused) { e.preventDefault(); sfx('click'); go('games.html'); }
@@ -307,7 +303,7 @@
     if (ring) ring.classList.toggle('hot', !!el);
   });
   addEventListener('pointerdown', e => {
-    if (e.target.closest('a, button') && !e.target.closest('[data-discord], .slot, .hud')) sfx('click');
+    if (e.target.closest('a, button') && !e.target.closest('[data-ext], .slot, .hud')) sfx('click');
     burst(e.clientX, e.clientY);
     if (ring) ring.classList.add('down');
   });

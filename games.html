@@ -22,16 +22,7 @@
 
   <nav class="top"><a href="index.html" data-go class="back">&lt; MENU</a></nav>
 
-  <a class="banner rise" href="hollowblade.html" data-go style="--r:0">
-    <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="4,4 996,4 982,50 996,96 4,96 18,50"/></svg>
-    <span><i>[</i>HOLLOWBLADE<i>]</i><br>CLICK HERE</span>
-    <em aria-hidden="true"></em>
-  </a>
-  <a class="banner rise" href="after-dark.html" data-go style="--r:1">
-    <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="4,4 996,4 982,50 996,96 4,96 18,50"/></svg>
-    <span><i>[</i>THE HOLLOW AFTER DARK<i>]</i><br>CLICK HERE</span>
-    <em aria-hidden="true"></em>
-  </a>
+  <div id="game-list"></div>
   <p class="sub rise" style="--r:1">&#8627; PICK A GAME TO SEE THE INFO</p>
 
   <div class="ticker rise" style="--r:1" aria-hidden="true">
@@ -52,20 +43,8 @@
 
     <section class="devs rise" style="--r:4" aria-labelledby="devs-h">
       <h3 id="devs-h">// THE DEVS</h3>
-      <div class="dev-grid">
-        <a class="dev" href="https://discord.com/users/947423539626127373" target="_blank" rel="noopener">
-          <b class="av pfp" style="--cx:68;--cy:127;--r:39" aria-hidden="true"></b><strong>UnknownService</strong><small>CODER &amp; DESIGNER</small><em>DISCORD &gt;</em>
-        </a>
-        <a class="dev main" href="https://discord.com/users/469916668651372556" target="_blank" rel="noopener">
-          <u class="crown">MAIN DEV</u><b class="av pfp" style="--cx:66;--cy:769;--r:34" aria-hidden="true"></b><strong>TheCelticBhoys</strong><small>LEAD DEVELOPER</small><em>DISCORD &gt;</em>
-        </a>
-        <a class="dev" href="https://discord.com/users/865600698761609216" target="_blank" rel="noopener">
-          <b class="av pfp" style="--cx:67;--cy:444;--r:36" aria-hidden="true"></b><strong>JIPJIP</strong><small>IDEAS PERSON</small><em>DISCORD &gt;</em>
-        </a>
-      </div>
-      <a class="tiktok" href="https://www.tiktok.com/@thehollowbladeoffical" target="_blank" rel="noopener">
-        <span>FOLLOW US ON TIKTOK</span><b>@THEHOLLOWBLADEOFFICAL</b>
-      </a>
+      <div class="dev-grid" id="dev-grid"></div>
+      <div class="socials" id="socials"></div>
     </section>
 
     <div class="mesh rise flash clicky" style="--r:4" title="Give it a spin" aria-hidden="true">
@@ -82,7 +61,10 @@
   <div class="vignette" aria-hidden="true"></div>
   <div class="scan" aria-hidden="true"></div>
   <div class="wipe on" aria-hidden="true"></div>
+  <script src="site-data.js"></script>
+  <script src="render.js"></script>
   <script src="script.js"></script>
   <script src="terminal.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>

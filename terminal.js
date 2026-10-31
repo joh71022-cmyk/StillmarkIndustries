@@ -3,17 +3,15 @@
   const HB = window.HB;
   if (!HB) return;
   const $ = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-  const LINKS = {
-    discord: 'https://discord.gg/QNGN2P7MNC',
-    itch: 'https://untimed.itch.io/the-hollow-after-dark',
-    tiktok: 'https://www.tiktok.com/@thehollowbladeoffical'
+  const S = () => window.SITE || { games: [], devs: [], socials: [] };
+  const KEYS = { discord: 'discord.', itch: 'itch.io', tiktok: 'tiktok.com' };
+  const findUrl = key => {
+    const urls = [...S().socials.map(s => s.url), ...S().games.flatMap(g => g.buttons.map(b => b.url))];
+    return urls.find(u => u.toLowerCase().includes(KEYS[key])) || null;
   };
-  const PAGES = {
-    home: 'index.html', menu: 'index.html', games: 'games.html', workshop: 'workshop.html',
-    hollowblade: 'hollowblade.html', 'after-dark': 'after-dark.html', afterdark: 'after-dark.html'
-  };
+  const PAGES = { home: 'index.html', menu: 'index.html', games: 'games.html', workshop: 'workshop.html' };
+  const gamePage = id => 'game.html?id=' + encodeURIComponent(id);
 
   /* ---------- nav links on the inner pages ---------- */
   const top = $('.top');
@@ -59,7 +57,11 @@
     out.scrollTop = out.scrollHeight;
   };
   const lines = (arr, cls) => arr.forEach(l => print(l, cls));
-  const openUrl = (key, label) => { print('OPENING ' + label + '...', 'ok'); HB.fx.discord(); window.open(LINKS[key], '_blank', 'noopener'); };
+  const openUrl = (key, label) => {
+    const url = findUrl(key);
+    if (!url) return print('NO ' + label + ' LINK SET UP YET.', 'err');
+    print('OPENING ' + label + '...', 'ok'); HB.fx.discord(); window.open(url, '_blank', 'noopener');
+  };
 
   function show() {
     ov.hidden = false; HB.fx.ok();
@@ -71,6 +73,7 @@
   }
   function hide() { ov.hidden = true; stopRain(); HB.fx.beep(2); }
   const toggle = () => (ov.hidden ? show() : hide());
+  window.HBTerm = { hide };
 
   function startRain() {
     if (rain) return;
@@ -97,9 +100,10 @@
       lines(['COMMANDS:',
         'games - list the games',
         'devs - meet the team',
-        'open <x> - go to games, workshop, home, hollowblade, after-dark, discord, itch or tiktok',
+        'socials - our links',
+        'open <x> - go to games, workshop, home, a game name, discord, itch or tiktok',
         'discord - open the Discord',
-        'itch - open The Hollow After Dark on itch.io',
+        'itch - open our itch.io page',
         'tiktok - open our TikTok',
         'sound on|off - sound effects',
         'music on|off - background music',
@@ -110,19 +114,23 @@
         '(there are a few secret commands too)']);
     },
     games() {
-      lines(['01 - HOLLOWBLADE (type: open hollowblade)', '02 - THE HOLLOW AFTER DARK (type: open after-dark)', '', 'MORE GAMES SOON...']);
+      const g = S().games;
+      if (!g.length) return print('NO GAMES YET.');
+      g.forEach((x, i) => print(String(i + 1).padStart(2, '0') + ' - ' + x.name + ' (type: open ' + x.id + ')'));
+      print(''); print('MORE GAMES SOON...');
     },
-    devs() {
-      lines(['THECELTICBHOYS - MAIN DEV', 'UNKNOWNSERVICE - CODER & DESIGNER', 'JIPJIP - IDEAS PERSON']);
-    },
+    devs() { S().devs.forEach(d => print(d.name.toUpperCase() + ' - ' + (d.main ? 'MAIN DEV, ' : '') + d.role)); },
+    socials() { S().socials.forEach(s => print(s.label + ' - ' + s.handle)); },
     discord() { openUrl('discord', 'DISCORD'); },
     itch() { openUrl('itch', 'ITCH.IO'); },
     tiktok() { openUrl('tiktok', 'TIKTOK'); },
     open(args) {
       const a = (args[0] || '').toLowerCase();
-      if (LINKS[a]) return openUrl(a, a.toUpperCase());
+      if (KEYS[a]) return openUrl(a, a.toUpperCase());
       if (PAGES[a]) { print('LOADING ' + a.toUpperCase() + '...', 'ok'); return setTimeout(() => HB.go(PAGES[a]), 250); }
-      print('UNKNOWN TARGET. TRY: games, workshop, home, hollowblade, after-dark, discord, itch, tiktok', 'err');
+      const g = S().games.find(x => x.id === a || x.id.replace(/-/g, '') === a.replace(/-/g, ''));
+      if (g) { print('LOADING ' + g.name + '...', 'ok'); return setTimeout(() => HB.go(gamePage(g.id)), 250); }
+      print('UNKNOWN TARGET. TYPE "games" TO SEE WHAT IS AVAILABLE.', 'err');
     },
     sound(args) { toggleSnd(args, 'sfx'); },
     sfx(args) { toggleSnd(args, 'sfx'); },
@@ -131,7 +139,7 @@
     matrix() { startRain(); print('WAKE UP...', 'ok'); },
     clear() { out.textContent = ''; },
     exit() { hide(); },
-    about() { lines(['HOLLOWBLADE INDUSTRIES', 'MAKERS OF HOLLOWBLADE AND THE HOLLOW AFTER DARK.']); },
+    about() { lines(['HOLLOWBLADE INDUSTRIES', 'MAKERS OF ' + (S().games.map(g => g.name).join(' AND ') || 'GAMES') + '.']); },
     whoami() { print('VISITOR #' + visits); },
     date() { print(new Date().toString()); },
     echo(args) { print(args.join(' ')); },
@@ -158,11 +166,20 @@
 
   function run(raw) {
     const text = raw.trim();
+    const [name, ...args] = text.split(/\s+/);
+    // not in the CMD table, so help and tab-complete never mention it; wrong tries look like any unknown command
+    if (name.toLowerCase() === 'mod' && window.HBAdmin) {
+      print('> mod ***', 'cmd');
+      window.HBAdmin.attempt(args).then(ok => {
+        if (ok) { print('ACCESS GRANTED.', 'ok'); hide(); }
+        else { HB.fx.err(); print('UNKNOWN COMMAND: mod. TYPE "help".', 'err'); }
+      });
+      return;
+    }
     print('> ' + text, 'cmd');
     if (!text) return;
     hist.push(text); hi = hist.length;
-    const [name, ...args] = text.split(/\s+/);
-    const fn = CMD[name.toLowerCase()];
+    const fn = Object.prototype.hasOwnProperty.call(CMD, name.toLowerCase()) ? CMD[name.toLowerCase()] : null;
     if (fn) fn(args); else { HB.fx.err(); print('UNKNOWN COMMAND: ' + name + '. TYPE "help".', 'err'); }
   }
 

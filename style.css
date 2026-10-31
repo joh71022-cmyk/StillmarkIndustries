@@ -158,7 +158,7 @@ html.overdrive .flash { animation-duration:.4s; }
 /* ---------- devs ---------- */
 .devs { width:min(100%,820px); margin-top:clamp(2rem,6vh,3.4rem); text-align:center; }
 .devs h3 { font-size:clamp(.9rem,2.2vw,1.4rem); letter-spacing:.3em; color:var(--mid); margin-bottom:1.4rem; }
-.dev-grid { display:grid; grid-template-columns:1fr 1.15fr 1fr; gap:clamp(10px,2vw,22px); align-items:end; }
+.dev-grid { gap:clamp(10px,2vw,22px); }
 .dev { position:relative; display:grid; justify-items:center; gap:.55rem; padding:1.4rem .8rem 1rem; background:rgba(0,0,0,.65); border:2px solid #555;
   transition:transform .18s, background .18s, border-color .18s, color .18s; }
 .dev::before,.dev::after { content:""; position:absolute; width:12px; height:12px; border:2px solid #fff; transition:.18s; }
@@ -177,7 +177,8 @@ html.overdrive .flash { animation-duration:.4s; }
 .dev:hover .av, .dev:focus-visible .av { border-color:#000; }
 .dev:hover small, .dev:hover em, .dev:focus-visible small, .dev:focus-visible em { color:#000; }
 .dev:hover .crown { background:#000; color:#fff; }
-.tiktok { display:inline-grid; gap:.4rem; margin-top:1.6rem; padding:.9rem 1.6rem; border:2px solid #fff; background:rgba(0,0,0,.65); transition:.18s; }
+.tiktok { display:none; }
+.tiktok-old { display:inline-grid; gap:.4rem; margin-top:1.6rem; padding:.9rem 1.6rem; border:2px solid #fff; background:rgba(0,0,0,.65); transition:.18s; }
 .tiktok span { font-size:.6rem; letter-spacing:.26em; color:var(--dim); transition:.18s; }
 .tiktok b { font-size:clamp(.75rem,2vw,1.1rem); letter-spacing:.12em; }
 .tiktok:hover, .tiktok:focus-visible { background:#fff; color:#000; transform:scale(1.04); }
@@ -264,10 +265,67 @@ body.has-cur .term-ov button { cursor:pointer; }
 .float { position:fixed; z-index:90; pointer-events:none; font-weight:700; font-size:1.4rem; letter-spacing:.08em; text-shadow:0 0 10px #fff; animation:floatup .9s ease-out forwards; }
 @keyframes floatup { to { transform:translateY(-80px); opacity:0; } }
 
+/* ---------- data-driven bits ---------- */
+#game-list { width:100%; position:relative; z-index:3; }
+.dev-grid { display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-end; }
+.dev { flex:1 1 190px; max-width:250px; }
+.dev.main { max-width:290px; flex-basis:215px; }
+.dev .av.ltr { display:grid; place-items:center; font-size:clamp(1.6rem,4vw,2.6rem); }
+.dev .av.img { background-size:cover; background-position:center; }
+.socials { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:1.6rem; }
+.social { display:inline-grid; gap:.4rem; padding:.9rem 1.6rem; border:2px solid #fff; background:rgba(0,0,0,.65); transition:.18s; text-align:center; }
+.social span { font-size:.6rem; letter-spacing:.26em; color:var(--dim); transition:.18s; }
+.social b { font-size:clamp(.7rem,2vw,1rem); letter-spacing:.12em; }
+.social:hover, .social:focus-visible { background:#fff; color:#000; transform:scale(1.04); }
+.social:hover span { color:#000; }
+.cta-row { position:relative; z-index:1; display:grid; justify-items:center; gap:14px; }
+.cta-row .cta { margin-top:2rem; }
+.cta-row .cta + .cta { margin-top:0; }
+.draft-tag { position:fixed; left:50%; bottom:46px; transform:translateX(-50%); z-index:50; background:#fff; color:#000; font-size:.58rem; letter-spacing:.2em; padding:5px 10px; pointer-events:none; white-space:nowrap; }
+
+/* centering: trailing letter-spacing pushes text left, so pad the start by the same amount */
+.gtitle { text-indent:.1em; }
+.title { text-indent:.1em; }
+.banner span { text-indent:.16em; }
+.soon, .kicker, .devs h3 { text-indent:.14em; }
+.gtitle { max-width:100%; overflow-wrap:anywhere; }
+
+/* ---------- mod panel ---------- */
+.adm { position:fixed; inset:0; z-index:88; background:rgba(0,0,0,.86); overflow:auto; padding:4vw; display:grid; place-items:start center; }
+.adm[hidden] { display:none; }
+.adm-box { width:min(780px,100%); background:#000; border:2px solid #fff; box-shadow:0 0 40px rgba(255,255,255,.2); }
+.adm-bar { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid #444; letter-spacing:.24em; font-size:.8rem; }
+.adm .tx { background:none; border:1px solid #666; color:#fff; font:inherit; font-size:.6rem; padding:4px 8px; cursor:pointer; }
+.adm button, .adm input, .adm textarea { font:inherit; }
+.adm-tabs { display:flex; border-bottom:1px solid #444; }
+.adm-tabs button { flex:1; background:none; border:0; border-right:1px solid #333; color:var(--dim); font-size:.62rem; letter-spacing:.2em; padding:12px 4px; cursor:pointer; }
+.adm-tabs button.on { background:#fff; color:#000; }
+.adm-status { padding:8px 14px; font-size:.55rem; letter-spacing:.18em; color:var(--dim); border-bottom:1px dashed #333; }
+.adm-body { padding:14px; }
+.adm-list { list-style:none; display:grid; gap:8px; margin-top:12px; }
+.adm-list li { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border:1px solid #444; background:rgba(255,255,255,.03); }
+.adm-t { display:grid; gap:4px; min-width:0; }
+.adm-t b { font-size:.8rem; letter-spacing:.1em; overflow-wrap:anywhere; }
+.adm-t small, .adm-hint, .adm-note { font-size:.55rem; letter-spacing:.14em; color:var(--dim); line-height:1.8; overflow-wrap:anywhere; }
+.adm-empty { color:var(--dim); font-size:.65rem; letter-spacing:.16em; }
+.adm-btns { display:flex; flex-wrap:wrap; gap:6px; }
+.adm-btns button, .adm-add button, .adm-form button { background:#000; color:#fff; border:1px solid #666; font-size:.58rem; letter-spacing:.16em; padding:8px 10px; cursor:pointer; }
+.adm-btns button:hover, .adm-add button:hover, .adm-form button:hover { background:#fff; color:#000; }
+.adm button.big { border:2px solid #fff; padding:12px 16px; font-size:.7rem; }
+.adm-form { display:grid; gap:12px; }
+.adm-form h4 { font-size:.8rem; letter-spacing:.24em; margin-top:.4rem; }
+.adm-form label { display:grid; gap:6px; font-size:.58rem; letter-spacing:.2em; color:var(--mid); }
+.adm-form label.chk { display:flex; align-items:center; gap:10px; }
+.adm-form input[type=text], .adm-form input[type=password], .adm-form textarea { width:100%; background:#000; color:#fff; border:1px solid #666; padding:10px; font-size:.75rem; letter-spacing:.06em; outline:0; resize:vertical; }
+.adm-form input:focus, .adm-form textarea:focus { border-color:#fff; box-shadow:0 0 10px rgba(255,255,255,.3); }
+.adm-msg { min-height:1em; font-size:.62rem; letter-spacing:.14em; color:#ff9a9a; overflow-wrap:anywhere; }
+body.has-cur .adm, body.has-cur .adm * { cursor:auto; }
+body.has-cur .adm button { cursor:pointer; }
+
 /* ---------- responsive / a11y ---------- */
 @media (max-width:640px) {
-  .dev-grid { grid-template-columns:1fr; }
-  .dev.main { order:-1; }
+  .dev { max-width:100%; flex-basis:100%; }
+  .dev.main { order:-1; max-width:100%; flex-basis:100%; }
 }
 @media (max-width:640px) {
   .title { font-size:clamp(1.5rem,9.5vw,2.6rem); }
