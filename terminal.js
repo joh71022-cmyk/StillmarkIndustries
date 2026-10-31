@@ -198,7 +198,7 @@
   ov.addEventListener('pointerdown', e => { if (e.target === ov) hide(); });
 
   /* ---------- openers ---------- */
-  document.addEventListener('click', e => { if (e.target.closest('[data-term]')) toggle(); });
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-term]')) toggle(); });
   addEventListener('keydown', e => {
     if (e.target.closest && e.target.closest('input, textarea')) return;
     if (e.key === '`' || e.key === '~') { e.preventDefault(); toggle(); }

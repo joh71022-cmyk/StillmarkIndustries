@@ -89,23 +89,25 @@
     const osc = (type, f0, f1, dur, v, at = 0, lp = 0) => { if (sfxOn && running()) voice(sfxBus, type, f0, f1, ctx.currentTime + at, dur, v, lp); };
     const noise = (dur, v, f0, f1, q = 1, at = 0, ftype = 'bandpass') => { if (sfxOn && running()) hit(sfxBus, ctx.currentTime + at, dur, v, ftype, f0, f1, q); };
 
-    /* ----- the track: an original dark synthwave loop, 108 BPM, A minor ----- */
-    const BPM = 108, STEP = 60 / BPM / 4;            // one sixteenth note
-    const ROOTS = [0, 8, 3, 10];                      // Am  F  C  G  (semitones above A)
-    const CHORDS = [[0, 3, 7], [0, 4, 7], [0, 4, 7], [0, 4, 7]];
-    const BASS = { 0: 0, 3: 0, 6: 12, 8: 0, 10: 0, 11: 12, 14: 7 };   // step -> semitone offset
-    const ARP = [0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 1, 2, 1, 0, 1];
+    /* ----- the track: an original dark cyberpunk loop, 126 BPM, A minor with a tense E major turnaround ----- */
+    const BPM = 126, STEP = 60 / BPM / 4;            // one sixteenth note
+    const ROOTS = [0, 0, 8, 7];                       // Am  Am  F  E   (semitones above A)
+    const CHORDS = [[0, 3, 7], [0, 3, 7], [0, 4, 7], [0, 4, 7]];
+    const BASS = [0, 0, 12, 0, 0, 12, 0, 0, 0, 0, 12, 0, 0, 12, 7, 12];   // rolling sixteenths with octave jumps
+    const HOOK = [0, 0, 3, 0, -1, 0, -4, -5];         // lead riff, one note per eighth (0 = A4)
+    const HOOK_SHIFT = [0, 0, -4, -5];                // the riff follows the chords
     const mtof = n => 55 * Math.pow(2, n / 12);      // 55 Hz = A1
+    const dist = k => { const n = 512, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); } return c; };
+    const duck = (g, t, depth, rel) => { g.gain.setValueAtTime(depth, t); g.gain.linearRampToValueAtTime(1, t + rel); };
 
     function startMusic() {
       if (!live() || seq) return;
       const t0 = ctx.currentTime;
-      // echo for the arpeggio (a dotted eighth, the classic synthwave shimmer)
-      const delay = ctx.createDelay(1); delay.delayTime.value = STEP * 3;
-      const fb = ctx.createGain(); fb.gain.value = .38;
-      const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2200;
-      delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(musicBus);
-      const send = ctx.createGain(); send.gain.value = .55; send.connect(delay);
+      // gritty bass chain: saw -> distortion -> low-pass, ducked by the kick
+      const bassIn = ctx.createGain(), shaper = ctx.createWaveShaper(), bassLP = ctx.createBiquadFilter(), bassBus = ctx.createGain();
+      shaper.curve = dist(18); shaper.oversample = '2x';
+      bassLP.type = 'lowpass'; bassLP.frequency.value = 1100;
+      bassIn.connect(shaper); shaper.connect(bassLP); bassLP.connect(bassBus); bassBus.connect(musicBus);
       const padBus = ctx.createGain(); padBus.connect(musicBus);
       // came from another page a moment ago? carry on from where the song was, with a short fade
       let from = 0, ahead = .15, fade = 2.5, resumed = false;
@@ -119,7 +121,7 @@
       musicBus.gain.cancelScheduledValues(t0);
       musicBus.gain.setValueAtTime(musicBus.gain.value, t0);
       musicBus.gain.linearRampToValueAtTime(vols.music, t0 + fade);
-      seq = { step: from, next: t0 + ahead, delay, send, padBus, timer: setInterval(schedule, 40), saved: 0 };
+      seq = { step: from, next: t0 + ahead, bassIn, bassBus, padBus, parts: [bassIn, shaper, bassLP, bassBus, padBus], timer: setInterval(schedule, 40), saved: 0 };
       if (resumed && (from & 15) !== 0) {      // landed mid-bar: bring the pad in straight away
         const bar = (from >> 4) & 15;
         pad(ROOTS[bar & 3], CHORDS[bar & 3], t0 + .05, STEP * (16 - (from & 15)));
@@ -137,47 +139,62 @@
         seq.next += STEP; seq.step = (seq.step + 1) % 256;
       }
     }
-    function pad(root, chord, t, dur) {                       // one long soft chord
-      [...chord, 12].forEach((n, k) => {
-        const f = mtof(24 + root + n) * (k % 2 ? 1.004 : .996);
-        voice(seq.padBus, 'sawtooth', f, f, t, dur, .028, 650);
+    function pad(root, chord, t, dur) {                       // a low, dark drone under everything
+      [chord[0], chord[2]].forEach((n, k) => {
+        const f = mtof(12 + root + n) * (k ? 1.003 : .997);
+        voice(seq.padBus, 'sawtooth', f, f, t, dur, .03, 500);
       });
     }
-    const LEAD = [[7, 10, 12, 10], [5, 7, 10, 7], [7, 5, 3, 5], [10, 7, 5, 3]];   // A minor pentatonic, A4 and up
     function play(s, t) {
       const bar = (s >> 4) & 15, i = s & 15, root = ROOTS[bar & 3], chord = CHORDS[bar & 3];
-      const drop = bar === 7;                                 // a bar with no drums, then the second half hits
-      const full = bar >= 2 && !drop;                         // two bars of just pads and arp first
-      const lift = bar >= 8;                                  // second half goes up an octave and adds a lead
+      const intro = bar < 2;                                  // bars 0-1: alarm, drone, soft hats
+      const brk = bar === 7;                                  // bar 7: everything drops out except the alarm and a riser
+      const groove = bar >= 2 && !brk;                        // bars 2-6 and 8-15: the full beat
+      const hard = bar >= 8;                                  // bars 8-15: the drop, with the lead riff
       if (i === 0) pad(root, chord, t, STEP * 16);
-      if (drop && i === 0) hit(musicBus, t, STEP * 16, .07, 'bandpass', 500, 6000, 1);   // riser into the drop
-      if (full) {
-        if (i % 4 === 0) {                                    // kick, and duck the pad so it pumps
-          voice(musicBus, 'sine', 150, 42, t, .24, .5);
-          seq.padBus.gain.setValueAtTime(.3, t);
-          seq.padBus.gain.linearRampToValueAtTime(1, t + .22);
+
+      // the "code red" alarm: two harsh staccato tones
+      if ((intro || brk) && i % 2 === 0) {
+        const f = i % 4 === 0 ? 880 : 587;
+        voice(musicBus, 'square', f, f, t, STEP * 1.4, .026, 2200);
+      }
+      if ((bar === 1 || brk) && i === 0) hit(musicBus, t, STEP * 16, brk ? .08 : .05, 'bandpass', 400, 7000, 1);   // riser
+
+      // hats: soft pulses in the intro, driving sixteenths in the groove
+      if (groove) {
+        hit(musicBus, t, .04, i % 4 === 2 ? .05 : i % 2 === 0 ? .03 : .016, 'highpass', 8000, 8000, .5);
+        if (i % 8 === 6) hit(musicBus, t, .12, .035, 'highpass', 7000, 7000, .5);   // open hat
+      } else if (intro && i % 4 === 2) hit(musicBus, t, .04, .02, 'highpass', 8000, 8000, .5);
+
+      if (groove) {
+        if (i % 4 === 0) {                                    // kick, and duck the bass and drone so they pump
+          voice(musicBus, 'sine', 165, 44, t, .22, .55);
+          hit(musicBus, t, .012, .12, 'highpass', 3000, 3000, .5);
+          duck(seq.bassBus, t, .22, .11); duck(seq.padBus, t, .3, .2);
         }
-        if (i === 4 || i === 12) { hit(musicBus, t, .15, .2, 'bandpass', 1500, 1100, .7); hit(musicBus, t + .011, .1, .12, 'bandpass', 2200, 1800, .7); }
-        if (i % 2 === 0) hit(musicBus, t, .045, i % 4 === 2 ? .05 : .022, 'highpass', 7500, 7500, .5);
-        if (bar % 4 === 3 && i >= 12) hit(musicBus, t, .04, .03, 'highpass', 8000, 8000, .5);
-        if (bar === 15 && i >= 12) hit(musicBus, t, .07, .1, 'bandpass', 1800, 1500, .7);   // fill before the loop restarts
-        if (i in BASS) {
-          const f = mtof(root + BASS[i]);
-          voice(musicBus, 'sawtooth', f, f, t, STEP * 1.7, .17, 520);
-          voice(musicBus, 'sine', f, f, t, STEP * 1.7, .26);
+        if (i === 4 || i === 12) {                            // snare on 2 and 4
+          hit(musicBus, t, .16, .22, 'bandpass', 1900, 1400, .7);
+          voice(musicBus, 'triangle', 210, 120, t, .1, .15);
+          if (hard) hit(musicBus, t + .012, .1, .12, 'bandpass', 2600, 2000, .7);
+        }
+        if (bar % 2 === 1 && i === 15) hit(musicBus, t, .08, .09, 'bandpass', 1800, 1500, .7);   // ghost snare
+        if (bar === 15 && i >= 12) hit(musicBus, t, .07, .1, 'bandpass', 1800, 1500, .7);       // roll before the loop restarts
+        // distorted rolling bass
+        const f = mtof(root + BASS[i]);
+        voice(seq.bassIn, 'sawtooth', f, f, t, STEP * .92, i % 4 === 0 ? .34 : .24, 0);
+        voice(musicBus, 'sine', f, f, t, STEP * .92, .28);
+        // staccato synth stabs on the off-beats, from bar 4
+        if (bar >= 4 && (i % 4 === 2 || (hard && (i === 3 || i === 11)))) {
+          chord.forEach(n => [.994, 1.006].forEach(d => {
+            const fr = mtof(24 + root + n) * d;
+            voice(musicBus, 'sawtooth', fr, fr, t, STEP * 1.3, .016, 2400);
+          }));
         }
       }
-      if (lift && full && i % 4 === 0) {                      // lead melody over the second half
-        const f = mtof(36 + LEAD[bar & 3][i >> 2]);
-        const g = ctx.createGain(); g.gain.value = 1; g.connect(musicBus); g.connect(seq.send);
-        voice(g, 'sawtooth', f, f, t, STEP * 3.2, .045, 3200);
-        voice(g, 'sine', f, f, t, STEP * 3.2, .04);
-      }
-      if (i % 2 === 0 || (full && i % 4 === 3)) {             // arpeggio
-        const n = chord[ARP[i] % 3] + (ARP[i] > 2 ? 12 : 0);
-        const f = mtof((lift ? 36 : 24) + root + n);
-        const g = ctx.createGain(); g.gain.value = 1; g.connect(musicBus); g.connect(seq.send);
-        voice(g, 'sawtooth', f, f, t, STEP * 1.6, full ? .05 : .06, 2400);
+      // lead riff over the drop: two detuned saws, gritty and bright
+      if (hard && i % 2 === 0 && !(bar === 15 && i >= 12)) {
+        const f = mtof(36 + HOOK[i >> 1] + HOOK_SHIFT[bar & 3]);
+        [.996, 1.004].forEach(d => voice(musicBus, 'sawtooth', f * d, f * d, t, STEP * 1.7, .04, 3000));
       }
     }
     function stopMusic() {
@@ -188,7 +205,7 @@
       musicBus.gain.cancelScheduledValues(t);
       musicBus.gain.setValueAtTime(musicBus.gain.value, t);
       musicBus.gain.linearRampToValueAtTime(0, t + .6);
-      setTimeout(() => { try { s.delay.disconnect(); s.send.disconnect(); s.padBus.disconnect(); } catch (e) {} }, 2000);
+      setTimeout(() => { try { s.parts.forEach(p => p.disconnect()); } catch (e) {} }, 2000);
     }
 
     /* ----- sound effects: short, soft, low-passed, so they do not wear you out ----- */
@@ -429,13 +446,14 @@
   /* ---------- hover + click sounds everywhere ---------- */
   let hovered = null;
   addEventListener('pointerover', e => {
-    const el = e.target.closest('a, button, .clicky');
+    const el = e.target.closest ? e.target.closest('a, button, .clicky') : null;
     if (el && el !== hovered) sfx('hover');
     hovered = el;
     if (ring) ring.classList.toggle('hot', !!el);
   });
   addEventListener('pointerdown', e => {
-    if (e.target.closest('a, button') && !e.target.closest('[data-ext], .slot, .hud')) sfx('click');
+    const tg = e.target.closest ? e.target : document.body;
+    if (tg.closest('a, button') && !tg.closest('[data-ext], .slot, .hud')) sfx('click');
     burst(e.clientX, e.clientY);
     if (ring) ring.classList.add('down');
   });
