@@ -88,3 +88,14 @@ Every page loads that first, and falls back to the copy saved in GitHub if the s
 - **Video**: upload an **MP4 or WebM** (up to 95 MB) in a Video element; it plays on the page, optionally on
   silent repeat like a GIF. Other formats (MOV, AVI, MKV) do not play in browsers, so convert them first.
 - Both are stored in the **downloads** GitHub release, like game downloads.
+
+## Community (forum, comments, reviews)
+
+Needs a Cloudflare D1 database bound as `DB`. Without it the rest of the service still works and the community shows "offline".
+
+1. `wrangler d1 create stillmark-community`
+2. Add to wrangler.toml: `[[d1_databases]]` with `binding = "DB"`, the database name and the id it printed.
+3. `wrangler d1 execute stillmark-community --remote --file=schema.sql`
+4. `wrangler deploy` (worker.js imports community.js, so keep both files together).
+
+Visitors have no accounts. People are told apart only by a private fingerprint (a hash of their address plus the mod code), used for rate limits, one like per person, and bans. Moderate from the mod panel's COMMUNITY tab. Add a COMMENTS, FORUM or LATEST THREADS block in the page builder; the forum itself is community.html.
