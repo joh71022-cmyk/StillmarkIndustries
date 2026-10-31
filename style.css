@@ -633,97 +633,92 @@ body.no-scan .scan { display:none; } body.no-vig .vignette { display:none; } bod
 .mem-chipbtn:hover{border-color:#fff}.mem-chipbtn.on{background:#fff;color:#000}
 
 /* =====================================================================
-   Phones, tablets, foldables, TVs and every other kind of screen
+   One layout per kind of device. platform.js tags <html> with
+   data-platform (phone, tablet, desktop, tv) and data-input (touch, mouse, both).
+   Nothing below changes how the site looks on a desktop computer.
    ===================================================================== */
 html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 html, body { max-width:100%; overflow-x:clip; }
 a, button, summary, select, label, input { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-img, video, canvas, svg { max-width:100%; }
-.bk table { display:block; max-width:100%; overflow-x:auto; }
+img, video { max-width:100%; }
 .bk iframe { max-width:100%; }
-.bk-page, .adm-body, .cm-body { overflow-wrap:anywhere; }
 
-/* notches and rounded corners: keep controls inside the safe area */
+/* notches and rounded corners: keep controls inside the safe area (zero on a normal screen) */
 .hud { right:max(16px, env(safe-area-inset-right)); top:max(14px, env(safe-area-inset-top)); }
 .foot { padding-left:max(20px, env(safe-area-inset-left)); padding-right:max(20px, env(safe-area-inset-right)); padding-bottom:max(14px, env(safe-area-inset-bottom)); }
 .top { padding-left:max(20px, env(safe-area-inset-left)); padding-right:max(20px, env(safe-area-inset-right)); padding-top:max(14px, env(safe-area-inset-top)); }
-.cm-ov, .adm, .term-ov { padding-left:max(12px, env(safe-area-inset-left)); padding-right:max(12px, env(safe-area-inset-right)); }
 
-/* fingers: bigger targets, and no zoom-in when a box is focused (iOS zooms anything under 16px) */
-@media (pointer:coarse) {
-  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), textarea, select { font-size:16px !important; }
-  .quick a, .quick button, .top a, .top button, .lk { min-height:44px; display:inline-flex; align-items:center; }
-  .hud button { min-height:44px; min-width:44px; }
-  .adm-btns button, .adm-tabs button, .adm-add button, .adm-form button, .bld button, .bld-card button, .adm .tx { min-height:42px; }
-  .cm-mini, .cm-tab, .cm-go, .cm-more, .cm-back, .cm-star { min-height:42px; }
-  .mem-chipbtn, .mem-tab { min-height:42px; }
-  summary { min-height:40px; display:flex; align-items:center; }
-  .enter:hover, .enter:hover svg, .enter:hover span { transform:none; }
-  .bld-grip { padding:12px 14px; }
-}
-@media (hover:none) { .enter:hover { transform:none; } }
+/* ---------- touch screens (phones and tablets): bigger targets, no zoom when typing ---------- */
+html[data-input="touch"] input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), html[data-input="touch"] textarea, html[data-input="touch"] select { font-size:16px !important; }
+html[data-input="touch"] .quick a, html[data-input="touch"] .quick button, html[data-input="touch"] .top a, html[data-input="touch"] .top button, html[data-input="touch"] .lk { min-height:44px; display:inline-flex; align-items:center; }
+html[data-input="touch"] .hud button { min-height:44px; min-width:44px; }
+html[data-input="touch"] .adm-btns button, html[data-input="touch"] .adm-tabs button, html[data-input="touch"] .adm-add button, html[data-input="touch"] .adm-form button, html[data-input="touch"] .bld button, html[data-input="touch"] .bld-card button, html[data-input="touch"] .adm .tx { min-height:42px; }
+html[data-input="touch"] .cm-mini, html[data-input="touch"] .cm-tab, html[data-input="touch"] .cm-go, html[data-input="touch"] .cm-more, html[data-input="touch"] .cm-back, html[data-input="touch"] .cm-star, html[data-input="touch"] .mem-chipbtn, html[data-input="touch"] .mem-tab { min-height:42px; }
+html[data-input="touch"] summary { min-height:40px; display:flex; align-items:center; }
+html[data-input="touch"] .enter:hover, html[data-input="touch"] .enter:hover svg, html[data-input="touch"] .enter:hover span { transform:none; }
+html[data-input="touch"] .bld-grip { padding:12px 14px; }
+html[data-input="touch"] .cm-chk input[type=checkbox], html[data-input="touch"] .adm-form input[type=checkbox], html[data-input="touch"] .adm-check input { width:22px; height:22px; }
 
-/* phones */
-@media (max-width:640px) {
-  body.games, body.gamepage { padding-bottom:calc(150px + env(safe-area-inset-bottom)); }
-  .hud { top:auto; right:8px; left:8px; bottom:calc(40px + env(safe-area-inset-bottom)); justify-content:center; flex-wrap:wrap; gap:6px; }
-  .hud .acct-hud { display:contents; }
-  .hud button { font-size:.58rem; letter-spacing:.1em; padding:8px 9px; }
-  .volpop { right:8px; left:8px; bottom:calc(140px + env(safe-area-inset-bottom)); min-width:0; }
-  .foot { font-size:.55rem; padding-top:8px; }
-  .top { gap:.2rem 1.1rem; }
-  .quick { flex-wrap:wrap; justify-content:center; gap:.2rem 1.4rem; }
-  .hero { padding-left:4vw; padding-right:4vw; }
-  .gtitle { font-size:clamp(1.5rem,9vw,2.4rem); letter-spacing:.06em; }
-  .cm-page { padding:70px 12px 60px; }
-  .cm-bar { flex-direction:column; align-items:stretch; }
-  .cm-tools { width:100%; } .cm-tools input, .cm-tools select { flex:1; min-width:0; }
-  .cm-acct small { flex-basis:100%; }
-  .cm-ov { padding:0; } .cm-modal { max-width:none; min-height:100%; border-width:0; }
-  /* mod panel: the whole screen, tabs that scroll sideways */
-  .adm { padding:0; } .adm-box { width:100%; min-height:100%; border-width:0; box-shadow:none; }
-  .adm-tabs { overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; } .adm-tabs::-webkit-scrollbar { display:none; }
-  .adm-tabs button { flex:0 0 auto; padding:12px 14px; }
-  .adm-list li { flex-direction:column; align-items:stretch; }
-  .adm-body { padding:10px; }
-  .bld-head { gap:6px; } .bld-acts { margin-left:0; width:100%; }
-  .bld-bar-top { flex-direction:column; align-items:stretch; }
-  .mem-head { gap:8px; } .mem-chips { flex-basis:100%; }
-  .term-ov { place-items:start center; padding-top:max(8px, env(safe-area-inset-top)); } .tbox { height:min(60dvh, 520px); }
-  .gallery, .bk-gallery { grid-template-columns:repeat(2, 1fr) !important; }
-}
-
-/* very small phones and split screens */
+/* ---------- phones ---------- */
+html[data-platform="phone"] .bk table { display:block; max-width:100%; overflow-x:auto; }
+html[data-platform="phone"] .bk-page, html[data-platform="phone"] .adm-body, html[data-platform="phone"] .cm-body { overflow-wrap:anywhere; }
+html[data-platform="phone"] body.games, html[data-platform="phone"] body.gamepage { padding-bottom:calc(150px + env(safe-area-inset-bottom)); }
+html[data-platform="phone"] .hud { top:auto; right:8px; left:8px; bottom:calc(40px + env(safe-area-inset-bottom)); justify-content:center; flex-wrap:wrap; gap:6px; }
+html[data-platform="phone"] .hud .acct-hud { display:contents; }
+html[data-platform="phone"] .hud button { font-size:.58rem; letter-spacing:.1em; padding:8px 9px; }
+html[data-platform="phone"] .volpop { right:8px; left:8px; bottom:calc(140px + env(safe-area-inset-bottom)); min-width:0; }
+html[data-platform="phone"] .foot { font-size:.55rem; padding-top:8px; }
+html[data-platform="phone"] .top { gap:.2rem 1.1rem; }
+html[data-platform="phone"] .quick { flex-wrap:wrap; justify-content:center; gap:.2rem 1.4rem; }
+html[data-platform="phone"] .hero { padding-left:4vw; padding-right:4vw; }
+html[data-platform="phone"] .gtitle { font-size:clamp(1.5rem,9vw,2.4rem); letter-spacing:.06em; }
+html[data-platform="phone"] .title { font-size:clamp(1.5rem,9.5vw,2.6rem); }
+html[data-platform="phone"] .cm-page { padding:70px 12px 60px; }
+html[data-platform="phone"] .cm-bar { flex-direction:column; align-items:stretch; }
+html[data-platform="phone"] .cm-tools { width:100%; } .cm-tools input, .cm-tools select { flex:1; min-width:0; }
+html[data-platform="phone"] .cm-acct small { flex-basis:100%; }
+html[data-platform="phone"] .cm-ov { padding:0; } .cm-modal { max-width:none; min-height:100%; border-width:0; }
+html[data-platform="phone"] .adm { padding:0; } .adm-box { width:100%; min-height:100%; border-width:0; box-shadow:none; }
+html[data-platform="phone"] .adm-tabs { overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; } .adm-tabs::-webkit-scrollbar { display:none; }
+html[data-platform="phone"] .adm-tabs button { flex:0 0 auto; padding:12px 14px; }
+html[data-platform="phone"] .adm-list li { flex-direction:column; align-items:stretch; }
+html[data-platform="phone"] .adm-body { padding:10px; }
+html[data-platform="phone"] .bld-head { gap:6px; } .bld-acts { margin-left:0; width:100%; }
+html[data-platform="phone"] .bld-bar-top { flex-direction:column; align-items:stretch; }
+html[data-platform="phone"] .mem-head { gap:8px; } .mem-chips { flex-basis:100%; }
+html[data-platform="phone"] .term-ov { place-items:start center; padding:max(8px, env(safe-area-inset-top)) 8px 8px; } .tbox { height:min(60dvh, 520px); }
+html[data-platform="phone"] .gallery, html[data-platform="phone"] .bk-gallery { grid-template-columns:repeat(2, 1fr) !important; }
+html[data-platform="phone"] .cm-ov, html[data-platform="phone"] .adm { padding-left:max(0px, env(safe-area-inset-left)); padding-right:max(0px, env(safe-area-inset-right)); }
 @media (max-width:360px) {
-  .hud button { font-size:.52rem; padding:7px 6px; letter-spacing:.06em; }
-  .title { letter-spacing:.04em; }
-  .cm-form input, .cm-form textarea { padding:8px; }
+html[data-platform="phone"] .hud button { font-size:.52rem; padding:7px 6px; letter-spacing:.06em; }
+html[data-platform="phone"] .title { letter-spacing:.04em; }
+html[data-platform="phone"] .cm-form input, html[data-platform="phone"] .cm-form textarea { padding:8px; }
 }
 
-/* phones turned sideways: very little height */
+/* a phone turned sideways: very little height */
 @media (max-height:480px) and (orientation:landscape) {
-  body.games, body.gamepage { padding-bottom:24px; }
-  .hud { position:fixed; top:6px; bottom:auto; left:auto; right:max(8px, env(safe-area-inset-right)); flex-wrap:nowrap; }
-  .hud button { min-height:36px; }
-  .foot { display:none; }
-  .title { font-size:clamp(1.2rem,6vh,2.4rem); }
-  .enter { margin-top:1.4rem; } .hint { margin-top:.8rem; } .quick { margin-top:.4rem; }
-  .hero { padding-top:.6rem; }
-  .boot .start { font-size:.8rem; }
-  .volpop { bottom:auto; top:56px; left:auto; right:8px; }
-  .adm-box, .cm-modal { min-height:auto; }
+html[data-platform="phone"] body.games, html[data-platform="phone"] body.gamepage { padding-bottom:24px; }
+html[data-platform="phone"] .hud { position:fixed; top:6px; bottom:auto; left:auto; right:max(8px, env(safe-area-inset-right)); flex-wrap:nowrap; }
+html[data-platform="phone"] .hud button { min-height:36px; }
+html[data-platform="phone"] .foot { display:none; }
+html[data-platform="phone"] .title { font-size:clamp(1.2rem,6vh,2.4rem); }
+html[data-platform="phone"] .enter { margin-top:1.4rem; } .hint { margin-top:.8rem; } .quick { margin-top:.4rem; }
+html[data-platform="phone"] .hero { padding-top:.6rem; }
+html[data-platform="phone"] .volpop { bottom:auto; top:56px; left:auto; right:8px; }
+html[data-platform="phone"] .adm-box, html[data-platform="phone"] .cm-modal { min-height:auto; }
 }
 
-/* tablets */
-@media (min-width:641px) and (max-width:1024px) {
-  .hero { width:min(100%, var(--pw, 700px)); }
-  .cm-page { max-width:760px; }
-  .adm-box { width:min(780px, 94vw); }
-}
+/* ---------- tablets ---------- */
+html[data-platform="tablet"] .hero { width:min(100%, var(--pw, 700px)); }
+html[data-platform="tablet"] .cm-page { max-width:760px; }
+html[data-platform="tablet"] .adm-box { width:min(780px, 94vw); }
+html[data-platform="tablet"] .hud { top:max(10px, env(safe-area-inset-top)); }
+html[data-platform="tablet"] .bk table { display:block; max-width:100%; overflow-x:auto; }
 
-/* big screens and TVs: let things breathe and stay readable from a sofa */
-@media (min-width:1600px) { html { font-size:112.5%; } }
-@media (min-width:2200px) { html { font-size:137.5%; } .cm-page { max-width:1000px; } }
+/* ---------- TVs and game consoles: bigger, and a clear focus ring for a remote or controller ---------- */
+html[data-platform="tv"]  { font-size:150%; }
+html[data-platform="tv"] a:focus-visible, html[data-platform="tv"] button:focus-visible, html[data-platform="tv"] summary:focus-visible, html[data-platform="tv"] input:focus-visible { outline:4px solid #fff; outline-offset:6px; }
+html[data-platform="tv"] .hud button, html[data-platform="tv"] .quick a, html[data-platform="tv"] .quick button, html[data-platform="tv"] .top a, html[data-platform="tv"] .top button { min-height:56px; }
 
 /* people who ask their system for less motion or higher contrast */
 @media (prefers-reduced-motion:reduce) { .boot, .wipe { transition:none !important; } html { scroll-behavior:auto; } }
