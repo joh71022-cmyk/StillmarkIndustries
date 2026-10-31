@@ -192,7 +192,10 @@ export async function accountMod(action, body, env, reply, { clip, int }) {
       if (body.early !== 'declined') sets.push("early_note = ''");
     }
     if (typeof body.earlyNote === 'string' && body.early === 'declined') { sets.push('early_note = ?'); args.push(clip(body.earlyNote, 200).trim()); }
-    if (typeof body.role === 'string') { sets.push('role = ?'); args.push(clip(body.role, 24).replace(/\s+/g, ' ').trim().toUpperCase()); }
+    if (typeof body.role === 'string' || Array.isArray(body.roles)) {          // several roles: kept as one comma-separated list
+      const list = (Array.isArray(body.roles) ? body.roles : String(body.role).split(/[,|]/)).map(x => clip(x, 24).replace(/[,|]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase()).filter(Boolean);
+      sets.push('role = ?'); args.push([...new Set(list)].slice(0, 8).join(','));
+    }
     if (typeof body.devName === 'string') { sets.push('dev_name = ?'); args.push(clip(body.devName, 40).trim()); }
     if (!sets.length) return reply({ ok: false, error: 'NOTHING TO CHANGE' }, 400);
     const r = await db.prepare('UPDATE users SET ' + sets.join(', ') + ' WHERE id = ?').bind(...args, id).run();

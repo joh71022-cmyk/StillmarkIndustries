@@ -49,7 +49,7 @@
     }
 
     /* ---------- the member list: grouped, with one-click roles and early access answers ---------- */
-    const ROLES = ['OWNER', 'DEV', 'WEBSITE MAKER', 'MODERATOR', 'TESTER', 'ARTIST'];
+    const ROLES = ['OWNER', 'CO-OWNER', 'DEV', 'WEBSITE MAKER', 'DESIGNER', 'ARTIST', 'MODERATOR', 'HELPER', 'TESTER', 'TRANSLATOR', 'VIP', 'SUPPORTER'];
     const api = String(kit.api || '').replace(/\/$/, '');
     let searchTimer = null;
 
@@ -84,8 +84,9 @@
     function memberCard(u) {
       const set = async (extra, okMsg) => { const x = await call({ action: 'c_user_set', id: u.id, ...extra }); say(x.ok ? okMsg : (x.error || 'FAILED')); paint(); };
       const avatar = u.av && api ? h('img', { class: 'mem-av', src: api + '/c/avatar?u=' + u.id, alt: '' }) : h('span', { class: 'mem-av ltr' }, (u.name[0] || '?').toUpperCase());
+      const mine = u.role ? u.role.split(',') : [];
       const chips = h('span', { class: 'mem-chips' });
-      if (u.role) chips.append(h('u', { class: 'mem-chip role' }, u.role));
+      mine.forEach(r => chips.append(h('u', { class: 'mem-chip role' }, r)));
       if (u.dev_name) chips.append(h('u', { class: 'mem-chip' }, 'DEV: ' + u.dev_name));
       if (u.early === 'approved') chips.append(h('u', { class: 'mem-chip ok' }, 'EARLY ACCESS'));
       if (u.early === 'pending') chips.append(h('u', { class: 'mem-chip hot' }, 'WANTS EARLY ACCESS'));
@@ -102,14 +103,16 @@
       const more = h('details', { class: 'mem-more' }, h('summary', {}, 'ROLE AND MORE'));
       const row = (label, ...kids) => h('div', { class: 'mem-row' }, h('small', {}, label), h('div', { class: 'mem-pick' }, ...kids));
       const chip = (label, on, fn) => { const c = h('button', { type: 'button', class: 'mem-chipbtn' + (on ? ' on' : '') }, label); c.addEventListener('click', fn); return c; };
-      const customRole = !ROLES.includes(u.role) && u.role;
-      more.append(row('GIVE THEM A ROLE (SHOWN ON THEIR POSTS)',
-        chip('NONE', !u.role, () => set({ role: '' }, 'ROLE REMOVED.')),
-        ...ROLES.map(r => chip(r, u.role === r, () => set({ role: r }, r + ' GIVEN TO ' + u.name.toUpperCase() + '.'))),
-        chip(customRole ? u.role : 'OTHER...', !!customRole, () => { const v = prompt('Type the role name (24 letters at most):', u.role || ''); if (v !== null) set({ role: v }, 'ROLE SAVED.'); })));
+      const toggle = r => set({ roles: mine.includes(r) ? mine.filter(x => x !== r) : [...mine, r] }, mine.includes(r) ? r + ' TAKEN AWAY FROM ' + u.name.toUpperCase() + '.' : r + ' GIVEN TO ' + u.name.toUpperCase() + '.');
+      const customs = mine.filter(r => !ROLES.includes(r));
+      more.append(row('ROLES (PICK AS MANY AS YOU LIKE, THEY SHOW ON THEIR POSTS)',
+        ...ROLES.map(r => chip(r, mine.includes(r), () => toggle(r))),
+        ...customs.map(r => chip(r + '  x', true, () => toggle(r))),
+        chip('+ ADD YOUR OWN', false, () => { const v = prompt('Type a new role name (24 letters at most):', ''); if (v && v.trim()) toggle(v.trim().toUpperCase().slice(0, 24)); }),
+        mine.length ? chip('CLEAR ALL', false, () => set({ roles: [] }, 'ROLES CLEARED.')) : null));
       if (devs.length) more.append(row('WHICH DEV IS THIS PERSON? (OPTIONAL)',
         chip('NOT A DEV', !u.dev_name, () => set({ devName: '' }, 'DEV LINK REMOVED.')),
-        ...devs.map(d => chip(d.name, u.dev_name === d.name, () => set({ devName: d.name, ...(u.role ? {} : { role: 'DEV' }) }, 'LINKED TO ' + d.name.toUpperCase() + '.')))));
+        ...devs.map(d => chip(d.name, u.dev_name === d.name, () => set({ devName: d.name, ...(mine.length ? {} : { roles: ['DEV'] }) }, 'LINKED TO ' + d.name.toUpperCase() + '.')))));
       more.append(row('EARLY ACCESS',
         chip('NO', u.early === 'none', () => set({ early: 'none' }, 'EARLY ACCESS CLEARED.')),
         chip('IN', u.early === 'approved', () => set({ early: 'approved' }, 'ACCEPTED INTO EARLY ACCESS.')),

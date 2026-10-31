@@ -52,7 +52,7 @@
     const head = el('header');
     if (p.av) { const im = el('img', 'cm-av'); im.alt = ''; im.width = 28; im.height = 28; im.loading = 'lazy'; im.src = API + '/c/avatar?u=' + p.uid + '&v=' + (me && me.id === p.uid ? avVer : 0); head.append(im); }
     head.append(el('b', 'cm-name', p.name)); if (p.staff) head.append(el('u', 'cm-badge', 'STAFF'));
-    else if (p.role || p.devName) { head.append(el('u', 'cm-badge role', p.role || 'DEV')); if (p.devName) head.append(el('small', 'cm-devname', p.devName)); }
+    else if (p.role || p.devName) { (p.role ? p.role.split(',') : ['DEV']).forEach(r => head.append(el('u', 'cm-badge role', r))); if (p.devName) head.append(el('small', 'cm-devname', p.devName)); }
     else if (p.member) head.append(el('u', 'cm-badge dim', 'MEMBER'));
     if (p.rating) head.append(stars(p.rating)); head.append(el('small', '', ago(p.created))); c.append(head);
     c.append(el('p', 'cm-body', p.body));
@@ -229,7 +229,7 @@
       bar.textContent = '';
       if (me) {
         if (me.avatar) { const im = el('img', 'cm-av'); im.alt = ''; im.width = 28; im.height = 28; im.src = API + '/c/avatar?u=' + me.id + '&v=' + avVer; bar.append(im); }
-        bar.append(el('b', '', me.name), el('small', '', (me.role || 'MEMBER') + (me.devName ? '  |  ' + me.devName : '') + ({ approved: '  |  EARLY ACCESS', pending: '  |  EARLY ACCESS REQUESTED', declined: '  |  EARLY ACCESS DENIED' }[me.early] || '')));
+        bar.append(el('b', '', me.name), el('small', '', (me.role ? me.role.split(',').join(' / ') : 'MEMBER') + (me.devName ? '  |  ' + me.devName : '') + ({ approved: '  |  EARLY ACCESS', pending: '  |  EARLY ACCESS REQUESTED', declined: '  |  EARLY ACCESS DENIED' }[me.early] || '')));
         const pr = el('button', 'cm-mini', 'PROFILE'); pr.type = 'button'; pr.addEventListener('click', profileModal);
         const lo = el('button', 'cm-mini', 'LOG OUT'); lo.type = 'button'; lo.addEventListener('click', async () => { await call('/c/logout', {}); setSession(''); });
         bar.append(pr, lo);
