@@ -605,3 +605,9 @@ body.no-scan .scan { display:none; } body.no-vig .vignette { display:none; } bod
 .cm-row .cm-avbig{flex:none}
 
 .cm-badge.role{background:#fff;color:#000;box-shadow:0 0 8px #fff8}.cm-devname{opacity:.85;letter-spacing:.06em;margin-left:0!important}
+
+/* account controls beside the sound buttons */
+.acct-hud{display:flex;gap:8px;align-items:center}
+.hud .acct-me{padding:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:50%;color:#fff}
+.hud .acct-me img{width:100%;height:100%;object-fit:cover;display:block}
+.hud .acct-me svg{display:block}

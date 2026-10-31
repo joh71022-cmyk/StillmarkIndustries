@@ -60,7 +60,7 @@ function avatarOk(u) {
 // c = { db, s (settings), me (private address fingerprint), t (now), vet, clip, kv }
 export async function accountRoute(route, b, env, reply, c) {
   const { db, s, me, t, vet, clip, kv } = c;
-  if (!['/register', '/login', '/logout', '/me', '/profile', '/password', '/deleteaccount'].includes(route)) return null;
+  if (!['/register', '/login', '/logout', '/me', '/profile', '/password', '/deleteaccount', '/rename'].includes(route)) return null;
   const wrong = () => reply({ ok: false, session: false, error: 'YOUR LOGIN EXPIRED. LOG IN AGAIN.' }, 401);
 
   if (route === '/register') {
@@ -128,9 +128,21 @@ export async function accountRoute(route, b, env, reply, c) {
   }
 
   // these two need the current password again
-  if (route === '/password' || route === '/deleteaccount') {
+  if (route === '/password' || route === '/deleteaccount' || route === '/rename') {
     if (await count(kv, 'lu:' + u.lname) >= 10) return reply({ ok: false, error: 'TOO MANY TRIES. WAIT 10 MINUTES.' }, 429);
     if (!same(await pbkdf2(typeof b.password === 'string' ? b.password.slice(0, 100) : '', u.salt, u.iter), u.hash)) { await bump(kv, 'lu:' + u.lname, 600); return reply({ ok: false, error: 'THE CURRENT PASSWORD IS WRONG.' }, 403); }
+    if (route === '/rename') {                                  // once a week, so people cannot dodge a ban or pose as others
+      if (kv && await count(kv, 'rn:' + u.id)) return reply({ ok: false, error: 'YOU CHANGED YOUR NAME RECENTLY. TRY AGAIN IN A FEW DAYS.' }, 429);
+      const nn = clip(b.newName, 30).trim();
+      if (!NAME_OK.test(nn)) return reply({ ok: false, error: 'THE NAME MUST BE 3 TO 20 LETTERS, NUMBERS, DASHES OR UNDERSCORES (NO SPACES).' }, 400);
+      const bad = vet(s, nn, { name: nn, min: 3 }); if (bad) return reply({ ok: false, error: bad }, 400);
+      if (nn === u.name) return reply({ ok: false, error: 'THAT IS ALREADY YOUR NAME.' }, 400);
+      const other = await db.prepare('SELECT id FROM users WHERE lname = ?').bind(lname(nn)).first();
+      if (other && other.id !== u.id) return reply({ ok: false, error: 'THAT NAME IS TAKEN.' }, 409);
+      try { await db.prepare('UPDATE users SET name = ?, lname = ? WHERE id = ?').bind(nn, lname(nn), u.id).run(); } catch (e) { return reply({ ok: false, error: 'THAT NAME IS TAKEN.' }, 409); }
+      if (kv) await kv.put('rn:' + u.id, '1', { expirationTtl: 7 * 86400 });
+      return reply({ ok: true, me: mine(await db.prepare('SELECT * FROM users WHERE id = ?').bind(u.id).first()) });
+    }
     if (route === '/password') {
       const pb = passwordProblem(b.newPassword, u.name); if (pb) return reply({ ok: false, error: pb }, 400);
       const salt = rand(16), hash = await pbkdf2(b.newPassword, salt, ITER);

@@ -30,22 +30,35 @@
     top.appendChild(b);
   }
 
-  /* ---------- the account button (top of every page): log in, or open your profile ---------- */
-  const acctBtn = document.createElement('button');
-  acctBtn.type = 'button'; acctBtn.className = 'lk acct-btn';
-  const acctLabel = () => { try { const m = localStorage.getItem('hb-session') && JSON.parse(localStorage.getItem('hb-me') || 'null'); return m && m.name ? m.name.toUpperCase() : 'LOG IN'; } catch (e) { return 'LOG IN'; } };
-  acctBtn.textContent = acctLabel();
+  /* ---------- account controls, next to the sound buttons: LOG IN and SIGN UP, or your picture (a cogwheel if you have none) ---------- */
+  const hudBar = $('.hud');
   let cmLoading = null;
   const withCommunity = () => cmLoading || (cmLoading = new Promise((ok, no) => {
     if (window.HBCommunity) return ok();
     const sc = document.createElement('script'); sc.src = 'community.js?v=' + (window.HB_VER || '1'); sc.onload = ok; sc.onerror = () => { cmLoading = null; no(); }; document.head.appendChild(sc);
   }));
-  acctBtn.addEventListener('click', () => { HB.fx && HB.fx.beep && HB.fx.beep(1); withCommunity().then(() => window.HBCommunity.account()).catch(() => HB.toast && HB.toast('ACCOUNTS ARE OFFLINE RIGHT NOW')); });
-  window.addEventListener('hb-account', () => { acctBtn.textContent = acctLabel(); });
+  const openAcct = what => { HB.fx && HB.fx.beep && HB.fx.beep(1); withCommunity().then(() => window.HBCommunity[what]()).catch(() => HB.toast && HB.toast('ACCOUNTS ARE OFFLINE RIGHT NOW')); };
+  const who = () => { try { return localStorage.getItem('hb-session') ? JSON.parse(localStorage.getItem('hb-me') || 'null') : null; } catch (e) { return null; } };
+  const GEAR = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M10.3 2.5h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.6.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6-2.6-.5v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7z"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+  const acctBox = document.createElement('span'); acctBox.className = 'acct-hud';
+  const paintAcct = () => {
+    acctBox.textContent = '';
+    const m = who();
+    if (!m) {
+      [['LOG IN', 'login'], ['SIGN UP', 'signup']].forEach(([label, what]) => { const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'acct-btn'; bt.textContent = label; bt.addEventListener('click', () => openAcct(what)); acctBox.appendChild(bt); });
+      return;
+    }
+    const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'acct-btn acct-me';
+    bt.title = 'YOUR PROFILE: ' + m.name; bt.setAttribute('aria-label', 'Your profile (' + m.name + ')');
+    if (m.avatar) { const im = document.createElement('img'); im.alt = ''; im.src = (window.HB_API || 'https://hollowblade-publish.joh71022.workers.dev') + '/c/avatar?u=' + m.id + '&v=' + (m.av || 0); im.onerror = () => { bt.textContent = ''; bt.innerHTML = GEAR; }; bt.appendChild(im); }
+    else bt.innerHTML = GEAR;
+    bt.addEventListener('click', () => openAcct('profile'));
+    acctBox.appendChild(bt);
+  };
+  paintAcct();
+  window.addEventListener('hb-account', paintAcct);
+  if (hudBar) hudBar.insertBefore(acctBox, hudBar.firstChild);
   withCommunity().catch(() => {});
-  if (top) top.appendChild(acctBtn);
-  const quickNav = $('.quick');
-  if (quickNav) quickNav.insertBefore(acctBtn, quickNav.querySelector('[data-term]'));
 
   /* ---------- visit counter ---------- */
   // counted once per real visitor (address + browser) by the service, so refreshing never adds a visit

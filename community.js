@@ -17,7 +17,7 @@
   let session = store.get('hb-session') || '', me = null;
   try { me = JSON.parse(store.get('hb-me') || 'null'); } catch (e) {}
   if (!session) me = null;
-  const setSession = (tok, m) => { session = tok || ''; me = tok ? m : null; store.set('hb-session', session); store.set('hb-me', JSON.stringify(me)); window.dispatchEvent(new Event('hb-account')); };
+  const setSession = (tok, m) => { session = tok || ''; me = tok ? Object.assign({}, m, { av: avVer }) : null; store.set('hb-session', session); store.set('hb-me', JSON.stringify(me)); window.dispatchEvent(new Event('hb-account')); };
   let avVer = 1;
 
   async function call(path, body) {
@@ -194,12 +194,17 @@
       const ch = el('button', 'cm-go', 'CHANGE PASSWORD'); ch.type = 'button';
       ch.addEventListener('click', async () => { pn.className = 'cm-note'; const r = await call('/c/password', { password: cur.value, newPassword: nw.value }); pn.textContent = r.ok ? 'PASSWORD CHANGED. YOUR OTHER DEVICES WERE LOGGED OUT.' : (r.error || 'FAILED'); if (!r.ok) pn.classList.add('err'); else { cur.value = nw.value = ''; } });
       pw.append(field('CURRENT PASSWORD', cur), field('NEW PASSWORD', nw), ch, pn);
+      const rn = el('details', 'cm-rules'); rn.append(el('summary', '', 'CHANGE MY NAME'));
+      const nn = input('text', '', 20, 'off'), rp = input('password', '', 100, 'current-password'), rnote = el('p', 'cm-note', 'YOU CAN CHANGE YOUR NAME ONCE A WEEK. YOUR OLD POSTS WILL SHOW THE NEW NAME.');
+      const rbtn = el('button', 'cm-go', 'CHANGE NAME'); rbtn.type = 'button';
+      rbtn.addEventListener('click', async () => { rnote.className = 'cm-note'; const r = await call('/c/rename', { newName: nn.value, password: rp.value }); if (r.ok) { avVer++; setSession(session, r.me); rnote.textContent = 'DONE. YOU ARE NOW ' + r.me.name + '.'; nn.value = rp.value = ''; } else { rnote.textContent = r.error || 'FAILED'; rnote.classList.add('err'); } });
+      rn.append(field('NEW NAME', nn), field('YOUR PASSWORD', rp), rbtn, rnote);
       const dz = el('details', 'cm-rules'); dz.append(el('summary', '', 'DELETE MY ACCOUNT'));
       const dp = input('password', '', 100, 'current-password'), dn = el('p', 'cm-note', 'YOUR POSTS STAY, BUT THEY NO LONGER BELONG TO A MEMBER. THIS CANNOT BE UNDONE.');
       const dbtn = el('button', 'cm-mini', 'DELETE FOR GOOD'); dbtn.type = 'button';
       dbtn.addEventListener('click', async () => { const r = await call('/c/deleteaccount', { password: dp.value }); if (r.ok) { setSession(''); close(); } else { dn.textContent = r.error || 'FAILED'; dn.classList.add('err'); } });
       dz.append(field('YOUR PASSWORD', dp), dbtn, dn);
-      box.append(f, pw, dz);
+      box.append(f, rn, pw, dz);
     });
   }
 
@@ -217,7 +222,7 @@
     });
   }
   let verified = false;
-  const refreshMe = () => { if (verified || !session) return; verified = true; call('/c/me', {}).then(r => { if (!r.ok) return; if (JSON.stringify(r.me) !== JSON.stringify(me)) setSession(session, r.me); notice(r.me); }); };
+  const refreshMe = () => { if (verified || !session) return; verified = true; call('/c/me', {}).then(r => { if (!r.ok) return; if (JSON.stringify({ ...r.me, av: 0 }) !== JSON.stringify({ ...me, av: 0 })) setSession(session, r.me); notice(r.me); }); };
   function accountBar() {
     const bar = el('div', 'cm-acct');
     const paint = () => {
@@ -356,5 +361,5 @@
   }
 
   if (session) setTimeout(refreshMe, 600);   // on every page: refresh who we are and tell about a decision
-  window.HBCommunity = { mountComments, mountForum, mountLatest, account: () => (session && me ? profileModal() : authModal('login')) };
+  window.HBCommunity = { mountComments, mountForum, mountLatest, account: () => (session && me ? profileModal() : authModal('login')), login: () => authModal('login'), signup: () => authModal('new'), profile: () => (session && me ? profileModal() : authModal('login')) };
 })();

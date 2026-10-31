@@ -62,8 +62,8 @@ async function rateCheck(db, me, s) {
 const repeated = async (db, me, body) => !!(await db.prepare('SELECT 1 AS x FROM posts WHERE ip = ? AND body = ? AND created > ? UNION ALL SELECT 1 FROM threads WHERE ip = ? AND body = ? AND created > ? LIMIT 1').bind(me, body, now() - 3600, me, body, now() - 3600).first());
 
 const pub = {
-  post: (p, mine) => ({ id: p.id, name: p.name, staff: !!p.staff, body: p.body, created: p.created, ups: p.ups, rating: p.rating == null ? null : p.rating, mine: !!mine, uid: p.user || 0, member: !!p.user, av: !!p.av, role: p.role || '', devName: p.devname || '' }),
-  thread: t => ({ id: t.id, board: t.board, title: t.title, name: t.name, staff: !!t.staff, created: t.created, last: t.last, ups: t.ups, pinned: !!t.pinned, locked: !!t.locked, replies: t.replies || 0 })
+  post: (p, mine) => ({ id: p.id, name: p.uname || p.name, staff: !!p.staff, body: p.body, created: p.created, ups: p.ups, rating: p.rating == null ? null : p.rating, mine: !!mine, uid: p.user || 0, member: !!p.user, av: !!p.av, role: p.role || '', devName: p.devname || '' }),
+  thread: t => ({ id: t.id, board: t.board, title: t.title, name: t.uname || t.name, staff: !!t.staff, created: t.created, last: t.last, ups: t.ups, pinned: !!t.pinned, locked: !!t.locked, replies: t.replies || 0 })
 };
 
 /* =============================== public side =============================== */
@@ -88,15 +88,15 @@ export async function communityRoute(req, env, url, reply, defs) {
       const where = ["t.kind = 'thread'", "t.status = 'ok'"], args = [];
       if (board) { where.push('t.board = ?'); args.push(board); }
       if (q) { where.push("(t.title LIKE ? ESCAPE '\\' OR t.body LIKE ? ESCAPE '\\')"); args.push('%' + q + '%', '%' + q + '%'); }
-      const rows = await db.prepare('SELECT t.*, (SELECT COUNT(*) FROM posts p WHERE p.thread = t.id AND p.status = \'ok\') AS replies FROM threads t WHERE ' + where.join(' AND ') + ' ORDER BY t.pinned DESC, ' + sort + ' LIMIT ? OFFSET ?').bind(...args, PAGE.threads + 1, page * PAGE.threads).all();
+      const rows = await db.prepare('SELECT t.*, (SELECT name FROM users u WHERE u.id = t.user) AS uname, (SELECT COUNT(*) FROM posts p WHERE p.thread = t.id AND p.status = \'ok\') AS replies FROM threads t WHERE ' + where.join(' AND ') + ' ORDER BY t.pinned DESC, ' + sort + ' LIMIT ? OFFSET ?').bind(...args, PAGE.threads + 1, page * PAGE.threads).all();
       const list = rows.results.slice(0, PAGE.threads).map(pub.thread);
       return reply({ ok: true, threads: list, more: rows.results.length > PAGE.threads });
     }
     if (route === '/thread') {
       if (!s.forum) return reply({ ok: false, error: 'THE FORUM IS CLOSED RIGHT NOW.' }, 403);
-      const t = await db.prepare("SELECT t.*, u.av AS av, u.role AS role, u.dev_name AS devname FROM threads t LEFT JOIN users u ON u.id = t.user WHERE t.id = ? AND t.kind = 'thread' AND t.status = 'ok'").bind(int(url.searchParams.get('id'), 0, 0, 1e12)).first();
+      const t = await db.prepare("SELECT t.*, u.av AS av, u.role AS role, u.dev_name AS devname, u.name AS uname FROM threads t LEFT JOIN users u ON u.id = t.user WHERE t.id = ? AND t.kind = 'thread' AND t.status = 'ok'").bind(int(url.searchParams.get('id'), 0, 0, 1e12)).first();
       if (!t) return reply({ ok: false, error: 'THAT THREAD DOES NOT EXIST (OR WAS REMOVED).' }, 404);
-      const rows = await db.prepare("SELECT p.*, u.av AS av, u.role AS role, u.dev_name AS devname FROM posts p LEFT JOIN users u ON u.id = p.user WHERE p.thread = ? AND p.status = 'ok' ORDER BY p.created ASC, p.id ASC LIMIT ? OFFSET ?").bind(t.id, PAGE.posts + 1, page * PAGE.posts).all();
+      const rows = await db.prepare("SELECT p.*, u.av AS av, u.role AS role, u.dev_name AS devname, u.name AS uname FROM posts p LEFT JOIN users u ON u.id = p.user WHERE p.thread = ? AND p.status = 'ok' ORDER BY p.created ASC, p.id ASC LIMIT ? OFFSET ?").bind(t.id, PAGE.posts + 1, page * PAGE.posts).all();
       return reply({ ok: true, thread: { ...pub.thread(t), body: t.body, mine: isMine(t), uid: t.user || 0, member: !!t.user, av: !!t.av, role: t.role || '', devName: t.devname || '' }, posts: rows.results.slice(0, PAGE.posts).map(p => pub.post(p, isMine(p))), more: rows.results.length > PAGE.posts });
     }
     if (route === '/comments') {
@@ -106,7 +106,7 @@ export async function communityRoute(req, env, url, reply, defs) {
       const t = await db.prepare("SELECT id, locked FROM threads WHERE kind = 'comments' AND key = ?").bind(key).first();
       if (!t) return reply({ ok: true, count: 0, avg: null, locked: false, ratings: !!def.ratings, posts: [], more: false, open: s.comments });
       const stat = await db.prepare("SELECT COUNT(*) AS n, AVG(rating) AS a FROM posts WHERE thread = ? AND status = 'ok'").bind(t.id).first();
-      const rows = await db.prepare("SELECT p.*, u.av AS av, u.role AS role, u.dev_name AS devname FROM posts p LEFT JOIN users u ON u.id = p.user WHERE p.thread = ? AND p.status = 'ok' ORDER BY p.created DESC, p.id DESC LIMIT ? OFFSET ?").bind(t.id, PAGE.comments + 1, page * PAGE.comments).all();
+      const rows = await db.prepare("SELECT p.*, u.av AS av, u.role AS role, u.dev_name AS devname, u.name AS uname FROM posts p LEFT JOIN users u ON u.id = p.user WHERE p.thread = ? AND p.status = 'ok' ORDER BY p.created DESC, p.id DESC LIMIT ? OFFSET ?").bind(t.id, PAGE.comments + 1, page * PAGE.comments).all();
       return reply({ ok: true, count: stat.n, avg: stat.a == null ? null : Math.round(stat.a * 10) / 10, locked: !!t.locked, ratings: !!def.ratings, open: s.comments, posts: rows.results.slice(0, PAGE.comments).map(p => pub.post(p, isMine(p))), more: rows.results.length > PAGE.comments });
     }
     return reply({ ok: false, error: 'UNKNOWN COMMUNITY ADDRESS' }, 404);
