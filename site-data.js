@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvxrsdy
+// stamp: mvvyav4s
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -18,12 +18,12 @@ window.SITE_DATA = {
   },
   "games": [
     {
-      "id": "info-exe",
-      "name": "INFO.EXE",
+      "id": "the-hollow-after-dark",
+      "name": "THE HOLLOW AFTER DARK",
       "blurb": "",
-      "tagline": "",
-      "status": "",
-      "icon": "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/info-exe-icon-7faed034.jpg",
+      "tagline": "Everything you see in here might not be final",
+      "status": "IN Development...",
+      "icon": "uploads/the-hollow-after-dark-icon-3da8937f.jpg",
       "info": [],
       "buttons": [],
       "banner": "",
@@ -36,8 +36,28 @@ window.SITE_DATA = {
       "subtitle": "",
       "blocks": [
         {
+          "type": "marquee",
+          "text": "/// COMING SOON /// ",
+          "speed": "normal",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        },
+        {
+          "type": "heading",
+          "text": "THE HOLLOW AFTER DARK",
+          "size": "medium",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        },
+        {
           "type": "text",
-          "text": "There are no current games at the moment we are developing games right now once we get far enough we will make a page\n\nGAME Names:\nTHE HOLLOW AFTER DARK\nHollowBlade",
+          "text": "/// Preview of graphics | Not final ///",
           "look": "plain",
           "align": "left",
           "width": "full",
@@ -46,9 +66,9 @@ window.SITE_DATA = {
         },
         {
           "type": "image",
-          "src": "https://github.com/joh71022-cmyk/StillmarkIndustries/releases/download/downloads/mvvwu8vv-Stillmark-Industries.gif",
+          "src": "uploads/the-hollow-after-dark-b3-src-e22062a7.png",
           "caption": "",
-          "size": "full",
+          "size": "wide",
           "look": "plain",
           "align": "left",
           "width": "full",
@@ -56,12 +76,25 @@ window.SITE_DATA = {
           "show": "all"
         },
         {
-          "type": "devs",
-          "title": "THE TEAM",
+          "type": "comments",
+          "title": "///chat///",
+          "ratings": false,
+          "uid": "9yseu14q",
+          "rev": "0",
           "look": "plain",
-          "align": "center",
+          "align": "left",
           "width": "full",
-          "anim": "fade",
+          "anim": "none",
+          "show": "all"
+        },
+        {
+          "type": "marquee",
+          "text": "/// Everything you see in here might not be final ///",
+          "speed": "slow",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
           "show": "all"
         }
       ]
