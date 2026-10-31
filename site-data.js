@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvwbgjm0
+// stamp: mvwbhrql
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -127,7 +127,7 @@ window.SITE_DATA = {
           "type": "image",
           "src": "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/hollow-blade-vr-b0-src-f39981ad.png",
           "caption": "",
-          "size": "small",
+          "size": "medium",
           "look": "plain",
           "align": "left",
           "width": "full",
@@ -146,18 +146,6 @@ window.SITE_DATA = {
         {
           "type": "divider",
           "style": "line",
-          "look": "plain",
-          "align": "left",
-          "width": "full",
-          "anim": "none",
-          "show": "all"
-        },
-        {
-          "type": "comments",
-          "title": "COMMENTS",
-          "ratings": false,
-          "uid": "mek1cyqv",
-          "rev": "0",
           "look": "plain",
           "align": "left",
           "width": "full",
