@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvtrkm5
+// stamp: mvvud764
 window.SITE_DATA = {
   "site": {
     "title": "HOLLOWBLADE INDUSTRIES",
@@ -14,6 +14,9 @@ window.SITE_DATA = {
       "tagline": "",
       "status": "",
       "icon": "",
+      "banner": "",
+      "accent": "",
+      "blocks": [],
       "info": [
         [
           "DEVELOPER",
@@ -42,6 +45,9 @@ window.SITE_DATA = {
       "tagline": "",
       "status": "",
       "icon": "",
+      "banner": "",
+      "accent": "",
+      "blocks": [],
       "info": [
         [
           "DEVELOPER",
