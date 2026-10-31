@@ -87,7 +87,7 @@
     status = h('p', { class: 'adm-status' }, 'READY.');
     content = h('div', { class: 'adm-body' });
     const tabs = h('div', { class: 'adm-tabs', role: 'tablist' });
-    ['games', 'devs', 'socials', 'site', 'publish'].forEach(t => tabs.append(h('button', { type: 'button', 'data-tab': t, onclick: () => { tab = t; editing = null; render(); } }, t.toUpperCase())));
+    ['games', 'pages', 'devs', 'socials', 'site', 'publish'].forEach(t => tabs.append(h('button', { type: 'button', 'data-tab': t, onclick: () => { tab = t; editing = null; render(); } }, t.toUpperCase())));
     panel = h('div', { class: 'adm', hidden: true },
       h('div', { class: 'adm-box', role: 'dialog', 'aria-label': 'Mod panel' },
         h('div', { class: 'adm-bar' }, h('b', {}, 'MOD PANEL'), h('button', { type: 'button', class: 'tx', onclick: close, 'aria-label': 'Close mod panel' }, 'X')),
@@ -100,7 +100,7 @@
     [...panel.querySelectorAll('.adm-tabs button')].forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     content.textContent = '';
     if (editing) return content.append(editing());
-    content.append({ games: gamesTab, devs: devsTab, socials: socialsTab, site: siteTab, publish: publishTab }[tab]());
+    content.append({ games: gamesTab, pages: pagesTab, devs: devsTab, socials: socialsTab, site: siteTab, publish: publishTab }[tab]());
   }
   const changed = () => { dirty = true; saveDraft(); render(); };
 
@@ -226,7 +226,7 @@
     { k: 'icon', label: 'GAME ICON', type: 'image', max: 256, hint: 'SHOWS ON THE GAMES PAGE BANNER AND AT THE TOP OF THE GAME PAGE.' },
     { k: 'tagline', label: 'BANNER SUBTITLE', ph: 'CLICK HERE', hint: 'THE SMALL TEXT UNDER THE NAME ON THE BANNER. EMPTY = CLICK HERE.' },
     { k: 'status', label: 'STATUS TAG', ph: 'IN DEVELOPMENT', hint: 'OPTIONAL. SHOWS UNDER THE TITLE, E.G. OUT NOW / COMING SOON.' },
-    { k: 'info', label: 'INFO ROWS', type: 'area', rows: 4, ph: 'DEVELOPER: HOLLOWBLADE INDUSTRIES\nFIND IT AT: ITCH.IO', hint: 'ONE ROW PER LINE, LIKE  LABEL: VALUE' },
+    { k: 'info', label: 'INFO ROWS', type: 'area', rows: 4, ph: 'DEVELOPER: STILLMARK INDUSTRIES\nFIND IT AT: ITCH.IO', hint: 'ONE ROW PER LINE, LIKE  LABEL: VALUE' },
     { k: 'blurb', label: 'DESCRIPTION', type: 'area', rows: 5 },
     { k: 'buttons', label: 'BUTTONS', type: 'area', rows: 3, ph: 'PLAY ON ITCH.IO | https://yourname.itch.io/game', hint: 'ONE BUTTON PER LINE, LIKE  LABEL | https://link' }
   ];
@@ -265,8 +265,8 @@
   }
   function openBuilder(g) {
     loadBuilder().then(() => {
-      editing = () => window.HBBuilder.create(g, { h, btn, HB, shrink, uploadFile, touch, back: () => { editing = null; saveDraft(); render(); } });
-      tab = 'games'; render();
+      editing = () => window.HBBuilder.create(g, { h, btn, HB, shrink, uploadFile, touch, isPage: (data.pages || []).includes(g), back: () => { editing = null; saveDraft(); render(); } });
+      tab = (data.pages || []).includes(g) ? 'pages' : 'games'; render();
     }).catch(e => { status.textContent = e.message; HB.fx.err(); });
   }
 
@@ -289,6 +289,32 @@
       }, v => parseGame(v, g));
       render();
     }, g => g.icon, g => btn('BUILD PAGE', () => openBuilder(g), 'build')));
+    return wrap;
+  }
+
+  /* ---------- custom pages (About, News, Press kit...) ---------- */
+  const pageFields = [
+    { k: 'name', label: 'PAGE NAME', ph: 'ABOUT US' },
+    { k: 'nav', label: 'SHOW A LINK TO IT ON THE MAIN MENU', type: 'check' }
+  ];
+  function pagesTab() {
+    if (!Array.isArray(data.pages)) data.pages = [];
+    const wrap = h('div', {});
+    wrap.append(h('p', { class: 'adm-note' }, 'EXTRA PAGES BESIDE THE GAMES: ABOUT, NEWS, PRESS KIT, ANYTHING. BUILD THEM WITH THE SAME DRAG-AND-DROP BUILDER.'),
+      addBar('+ ADD PAGE', () => {
+        editing = () => editor('ADD A PAGE', pageFields, { nav: true }, v => {
+          if (!v.name) return 'PAGE NAME IS REQUIRED.';
+          let id = slug(v.name) || 'page', n = 2; const base = id;
+          while (data.pages.some(x => x.id === id)) id = base + '-' + n++;
+          const p = { id, name: v.name, nav: v.nav, blocks: [] }; data.pages.push(p);
+          setTimeout(() => openBuilder(p), 0);
+        });
+        render();
+      }),
+      list(data.pages, p => p.name + (p.nav ? '' : '  (NOT IN MENU)'), p => 'LINK: page.html?id=' + p.id + '  |  ' + (p.blocks || []).length + ' ELEMENT(S)', p => {
+        editing = () => editor('EDIT: ' + p.name, pageFields, p, v => { if (!v.name) return 'PAGE NAME IS REQUIRED.'; p.name = v.name; p.nav = v.nav; });
+        render();
+      }, null, p => btn('BUILD PAGE', () => openBuilder(p), 'build')));
     return wrap;
   }
 
@@ -350,12 +376,21 @@
   /* ---------- site text ---------- */
   function siteTab() {
     const fields = [
-      { k: 'title', label: 'MAIN MENU TITLE', ph: 'HOLLOWBLADE INDUSTRIES' },
+      { k: 'title', label: 'MAIN MENU TITLE', ph: 'STILLMARK INDUSTRIES' },
+      { k: 'enterLabel', label: 'MAIN MENU BUTTON TEXT', ph: 'ENTER', hint: 'EMPTY = ENTER' },
       { k: 'soon', label: 'GAMES PAGE HEADING', ph: 'MORE GAMES SOON' },
-      { k: 'ticker', label: 'SCROLLING TICKER TEXT', type: 'area', rows: 3, hint: 'THE TEXT THAT SCROLLS ACROSS THE GAMES PAGE.' }
+      { k: 'ticker', label: 'SCROLLING TICKER TEXT', type: 'area', rows: 3, hint: 'THE TEXT THAT SCROLLS ACROSS THE GAMES PAGE.' },
+      { k: 'footer', label: 'FOOTER TEXT', ph: '(C) STILLMARK INDUSTRIES', hint: 'EMPTY = THE DEFAULT' },
+      { k: 'announce', label: 'ANNOUNCEMENT BAR (OPTIONAL)', ph: 'NEW UPDATE OUT NOW!', hint: 'A BAR ACROSS THE TOP OF EVERY PAGE. VISITORS CAN CLOSE IT. EMPTY = NO BAR.' },
+      { k: 'announceUrl', label: 'ANNOUNCEMENT LINK (OPTIONAL)', ph: 'https://...' },
+      { k: 'announceTone', label: 'ANNOUNCEMENT LOOK', type: 'select', options: ['info', 'warning', 'party'] },
+      { k: 'fxScan', label: 'EFFECT: SCANLINES', type: 'check' }, { k: 'fxDust', label: 'EFFECT: FLOATING DUST', type: 'check' },
+      { k: 'fxVignette', label: 'EFFECT: DARK EDGES', type: 'check' }, { k: 'fxGrid', label: 'EFFECT: BACKGROUND GRID', type: 'check' },
+      { k: 'fxCursor', label: 'EFFECT: GEAR CURSOR', type: 'check' }
     ];
-    return editor('SITE TEXT', fields, data.site, v => {
+    return editor('SITE TEXT AND LOOK', fields, data.site, v => {
       if (!v.title) return 'MENU TITLE IS REQUIRED.';
+      if (v.announceUrl && !okUrl(v.announceUrl)) return 'ANNOUNCEMENT LINK MUST START WITH https://';
       Object.assign(data.site, v);
     });
   }
@@ -453,6 +488,10 @@
           if (isData(g.banner)) pics.push([g, 'banner', g.id + '-banner']);
           (window.HBBlocks ? window.HBBlocks.collectImages(g.blocks, g.id) : []).forEach(x => { if (isData(x[0][x[1]])) pics.push(x); });
         });
+        (pub.pages || []).forEach(p => {
+          if (isData(p.banner)) pics.push([p, 'banner', 'page-' + p.id + '-banner']);
+          (window.HBBlocks ? window.HBBlocks.collectImages(p.blocks, 'page-' + p.id) : []).forEach(x => { if (isData(x[0][x[1]])) pics.push(x); });
+        });
         pub.devs.forEach(d => { if (isData(d.avatar)) pics.push([d, 'avatar', slug(d.name) + '-pic']); });
         for (const [obj, key, base] of pics) {
           const m = /^data:image\/(png|jpeg|webp|gif);base64,(.+)$/.exec(obj[key]);
@@ -519,6 +558,10 @@
           if (isData(g.icon)) pics.push([g, 'icon', g.id + '-icon']);
           if (isData(g.banner)) pics.push([g, 'banner', g.id + '-banner']);
           (window.HBBlocks ? window.HBBlocks.collectImages(g.blocks, g.id) : []).forEach(x => { if (isData(x[0][x[1]])) pics.push(x); });
+        });
+        (pub.pages || []).forEach(p => {
+          if (isData(p.banner)) pics.push([p, 'banner', 'page-' + p.id + '-banner']);
+          (window.HBBlocks ? window.HBBlocks.collectImages(p.blocks, 'page-' + p.id) : []).forEach(x => { if (isData(x[0][x[1]])) pics.push(x); });
         });
         pub.devs.forEach(d => { if (isData(d.avatar)) pics.push([d, 'avatar', slug(d.name) + '-pic']); });
         for (const [obj, key, base] of pics) {

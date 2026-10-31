@@ -2,7 +2,7 @@
 // stamp: mvvuuqkn
 window.SITE_DATA = {
   "site": {
-    "title": "HOLLOWBLADE INDUSTRIES",
+    "title": "STILLMARK INDUSTRIES",
     "soon": "MORE GAMES SOON",
     "ticker": "/// HOLLOW BLADE IS IN DEVELOPMENT /// JOIN THE DISCORD FOR UPDATES /// NEW GAMES INCOMING /// GEARS: TURNING /// BLADES: SHARPENED /// STATUS: ONLINE "
   },

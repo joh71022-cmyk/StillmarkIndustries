@@ -17,8 +17,9 @@
   const top = $('.top');
   if (top) {
     const here = location.pathname.split('/').pop() || 'index.html';
-    [['games.html', 'GAMES'], ['workshop.html', 'WORKSHOP']].forEach(([href, label]) => {
-      if (here === href) return;
+    const extra = (S().pages || []).filter(p => p.nav && p.name).map(p => ['page.html?id=' + encodeURIComponent(p.id), p.name.toUpperCase()]);
+    [['games.html', 'GAMES'], ['workshop.html', 'WORKSHOP'], ...extra].forEach(([href, label]) => {
+      if (here + location.search === href || here === href) return;
       const a = document.createElement('a');
       a.className = 'lk'; a.href = href; a.textContent = label;
       a.addEventListener('click', e => { e.preventDefault(); HB.go(href); });
@@ -43,7 +44,7 @@
   const ov = document.createElement('div');
   ov.className = 'term-ov'; ov.hidden = true;
   ov.innerHTML = '<div class="tbox" role="dialog" aria-label="Terminal">' +
-    '<div class="tbar"><span>HOLLOWBLADE://TERMINAL</span><button type="button" class="tx" aria-label="Close terminal">X</button></div>' +
+    '<div class="tbar"><span>STILLMARK://TERMINAL</span><button type="button" class="tx" aria-label="Close terminal">X</button></div>' +
     '<div class="tout" aria-live="polite"></div>' +
     '<label class="tin"><b>&gt;</b><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Command"></label></div>';
   document.body.appendChild(ov);
@@ -67,7 +68,7 @@
     ov.hidden = false; HB.fx.ok();
     if (!booted) {
       booted = true;
-      lines(['HOLLOWBLADE INDUSTRIES TERMINAL v1.0', 'TYPE "help" FOR A LIST OF COMMANDS.', ''], 'dim');
+      lines(['STILLMARK INDUSTRIES TERMINAL v1.0', 'TYPE "help" FOR A LIST OF COMMANDS.', ''], 'dim');
     }
     setTimeout(() => input.focus(), 30);
   }
@@ -101,6 +102,7 @@
         'games - list the games',
         'devs - meet the team',
         'socials - our links',
+        'pages - extra pages on the site',
         'open <x> - go to games, workshop, home, a game name, discord, itch or tiktok',
         'discord - open the Discord',
         'itch - open our itch.io page',
@@ -121,6 +123,7 @@
     },
     devs() { S().devs.forEach(d => print(d.name.toUpperCase() + ' - ' + (d.main ? 'MAIN DEV, ' : '') + d.role)); },
     socials() { S().socials.forEach(s => print(s.label + ' - ' + s.handle)); },
+    pages() { const p = S().pages || []; if (!p.length) return print('NO EXTRA PAGES YET.'); p.forEach((x, i) => print(String(i + 1).padStart(2, '0') + ' - ' + x.name + ' (type: open ' + x.id + ')')); },
     discord() { openUrl('discord', 'DISCORD'); },
     itch() { openUrl('itch', 'ITCH.IO'); },
     tiktok() { openUrl('tiktok', 'TIKTOK'); },
@@ -130,6 +133,8 @@
       if (PAGES[a]) { print('LOADING ' + a.toUpperCase() + '...', 'ok'); return setTimeout(() => HB.go(PAGES[a]), 250); }
       const g = S().games.find(x => x.id === a || x.id.replace(/-/g, '') === a.replace(/-/g, ''));
       if (g) { print('LOADING ' + g.name + '...', 'ok'); return setTimeout(() => HB.go(gamePage(g.id)), 250); }
+      const pg = (S().pages || []).find(x => x.id === a || x.name.toLowerCase() === a);
+      if (pg) { print('LOADING ' + pg.name + '...', 'ok'); return setTimeout(() => HB.go('page.html?id=' + encodeURIComponent(pg.id)), 250); }
       print('UNKNOWN TARGET. TYPE "games" TO SEE WHAT IS AVAILABLE.', 'err');
     },
     sound(args) { toggleSnd(args, 'sfx'); },
@@ -144,7 +149,7 @@
     matrix() { startRain(); print('WAKE UP...', 'ok'); },
     clear() { out.textContent = ''; },
     exit() { hide(); },
-    about() { lines(['HOLLOWBLADE INDUSTRIES', 'MAKERS OF ' + (S().games.map(g => g.name).join(' AND ') || 'GAMES') + '.']); },
+    about() { lines(['STILLMARK INDUSTRIES', 'MAKERS OF ' + (S().games.map(g => g.name).join(' AND ') || 'GAMES') + '.']); },
     whoami() { print('VISITOR #' + visits); },
     date() { print(new Date().toString()); },
     echo(args) { print(args.join(' ')); },

@@ -2,7 +2,7 @@
    downloadable files, preview the page. It works directly on a game's `blocks`. */
 (() => {
   const B = window.HBBlocks;
-  const GROUPS = ['TEXT', 'MEDIA', 'ACTION', 'INFO', 'LAYOUT'];
+  const GROUPS = ['TEXT', 'MEDIA', 'ACTION', 'INFO', 'INTERACT', 'LAYOUT'];
   const ACCENTS = ['', 'white', 'cyan', 'magenta', 'lime', 'amber', 'red'];
   const MOVE = 'application/x-hb-move', NEW = 'application/x-hb-new';
   const fmtSize = n => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
@@ -17,6 +17,9 @@
       return out.length ? out : [mk('text')];
     }
     if (kind === 'simple') return [mk('text'), mk('buttons')];
+    if (kind === 'about') return [mk('hero', { title: g.name || 'ABOUT US', subtitle: 'Who we are and what we make.', height: '320' }), mk('text', { text: 'Tell your story here.\n\nWho you are, what you make and why.' }), mk('devs'), mk('stats'), mk('socials')];
+    if (kind === 'news') return [mk('heading', { text: 'LATEST NEWS', size: 'large' }), mk('changelog', { title: '', entries: [{ version: 'NEW', date: '2026-10-31', notes: 'Write your first news post here.' }] }), mk('socials')];
+    if (kind === 'press') return [mk('heading', { text: 'PRESS KIT', size: 'large' }), mk('text', { text: 'A short description for people writing about us.' }), mk('facts', { title: 'FAST FACTS' }), mk('download', { title: 'LOGOS AND SCREENSHOTS (ZIP)' }), mk('gallery'), mk('credits')];
     if (kind === 'itch') return [
       mk('text', { text: 'Tell people what ' + (g.name || 'your game') + ' is about in a few sentences.\n\n**Bold** words and [links](https://example.com) work too.' }),
       mk('buttons'), mk('download'), mk('gallery'), mk('facts'), mk('requirements'), mk('faq'), mk('changelog'), mk('socials')
@@ -36,7 +39,7 @@
     const refreshPreview = () => {
       if (!previewOn) return;
       preview.textContent = '';
-      preview.append(g.blocks.length ? B.render(B.cleanBlocks(g.blocks), { socials: (window.SITE || {}).socials }) : h('p', { class: 'adm-note' }, 'THE PAGE IS EMPTY. ADD AN ELEMENT.'));
+      preview.append(g.blocks.length ? B.render(B.cleanBlocks(g.blocks), { socials: (window.SITE || {}).socials, devs: (window.SITE || {}).devs, ownerId: g.id, preview: true }) : h('p', { class: 'adm-note' }, 'THE PAGE IS EMPTY. ADD AN ELEMENT.'));
     };
     const tick = () => { kit.touch(); refreshPreview(); };
 
@@ -103,7 +106,7 @@
       const id = 'bf-' + Math.random().toString(36).slice(2, 8);
       const label = text => h('label', { for: id }, text);
       let ctl;
-      if (f.type === 'text') { ctl = h('input', { id, type: 'text', autocomplete: 'off', placeholder: f.ph || '' }); ctl.value = b[f.k] || ''; ctl.addEventListener('input', () => { b[f.k] = ctl.value.slice(0, f.max || 300); tick(); }); }
+      if (f.type === 'text' || f.type === 'url') { ctl = h('input', { id, type: 'text', autocomplete: 'off', placeholder: f.ph || '' }); ctl.value = b[f.k] || ''; ctl.addEventListener('input', () => { b[f.k] = ctl.value.slice(0, f.max || 300); tick(); }); }
       else if (f.type === 'area') { ctl = h('textarea', { id, rows: f.rows || 4 }); ctl.value = b[f.k] || ''; ctl.addEventListener('input', () => { b[f.k] = ctl.value; tick(); }); }
       else if (f.type === 'select') { ctl = h('select', { id }, f.options.map(o => h('option', { value: o }, o.toUpperCase()))); ctl.value = b[f.k]; ctl.addEventListener('change', () => { b[f.k] = ctl.value; tick(); }); }
       else if (f.type === 'lines') { const L = B.lines[f.lines]; ctl = h('textarea', { id, rows: f.rows || 4 }); ctl.value = L.fmt(b[f.k] || []); ctl.addEventListener('input', () => { b[f.k] = L.parse(ctl.value); tick(); }); }
@@ -116,7 +119,7 @@
 
     /* ----- the cards ----- */
     const move = (i, d) => { const j = i + d; if (j < 0 || j >= g.blocks.length) return; [g.blocks[i], g.blocks[j]] = [g.blocks[j], g.blocks[i]]; paint(); tick(); };
-    const dup = i => { const c = B.cleanBlock(JSON.parse(JSON.stringify(g.blocks[i]))) || JSON.parse(JSON.stringify(g.blocks[i])); g.blocks.splice(i + 1, 0, c); expanded.add(c); paint(); tick(); };
+    const dup = i => { const c = B.freshen(B.cleanBlock(JSON.parse(JSON.stringify(g.blocks[i]))) || JSON.parse(JSON.stringify(g.blocks[i]))); g.blocks.splice(i + 1, 0, c); expanded.add(c); paint(); tick(); };
     const remove = i => { g.blocks.splice(i, 1); paint(); tick(); };
     const isOurs = e => e.dataTransfer && [...(e.dataTransfer.types || [])].some(t => t === MOVE || t === NEW);
 
@@ -155,7 +158,9 @@
           btn(open ? 'CLOSE' : 'EDIT', () => { open ? expanded.delete(b) : expanded.add(b); paint(); }), delBtn)));
       if (open) {
         const body = h('div', { class: 'bld-body' });
-        const build = () => { body.textContent = ''; T.fields.forEach(f => body.append(field(b, f, build))); };
+        const build = () => { body.textContent = ''; T.fields.filter(f => !f.hidden).forEach(f => body.append(field(b, f, build)));
+          if (T.needsUid) body.append(h('div', { class: 'bld-field' }, btn('RESET VOTES (START A FRESH COUNT)', () => { b.rev = String((+b.rev || 0) + 1); tick(); HB.fx.ok(); }), h('small', { class: 'adm-hint' }, 'VOTES START COUNTING ONCE YOU PUBLISH THIS PAGE. USE RESET IF YOU CHANGE THE OPTIONS.')));
+          body.append(h('details', { class: 'bld-style' }, h('summary', {}, 'STYLE: LOOK, ALIGN, WIDTH, ANIMATION'), ...B.common.map(f => field(b, f, build)))); };
         build(); li.append(body);
         body.addEventListener('input', () => { sum.textContent = B.summary(b); });
       }
@@ -186,20 +191,34 @@
     });
 
     const starters = h('div', { class: 'bld-starters' }, h('b', {}, 'START WITH:'),
-      btn('MY CURRENT INFO', () => { g.blocks = starter('legacy', g); paint(); tick(); }),
-      btn('ITCH.IO-STYLE PAGE', () => { g.blocks = starter('itch', g); paint(); tick(); }),
+      ...(kit.isPage
+        ? [btn('ABOUT PAGE', () => { g.blocks = starter('about', g); paint(); tick(); }), btn('NEWS PAGE', () => { g.blocks = starter('news', g); paint(); tick(); }), btn('PRESS KIT', () => { g.blocks = starter('press', g); paint(); tick(); })]
+        : [btn('MY CURRENT INFO', () => { g.blocks = starter('legacy', g); paint(); tick(); }), btn('ITCH.IO-STYLE PAGE', () => { g.blocks = starter('itch', g); paint(); tick(); })]),
       btn('SIMPLE PAGE', () => { g.blocks = starter('simple', g); paint(); tick(); }),
       h('small', {}, 'OR JUST ADD ELEMENTS BELOW.'));
 
     const accent = h('select', { id: 'bld-acc' }, ACCENTS.map(a => h('option', { value: a }, (a || 'default (white)').toUpperCase())));
     accent.value = g.accent || ''; accent.addEventListener('change', () => { g.accent = accent.value; tick(); });
-    const look = h('details', { class: 'bld-look' }, h('summary', {}, 'PAGE LOOK: BANNER AND ACCENT COLOUR'),
+    const simple = (label, key, type, options, hint) => {
+      const id = 'bp-' + key; let ctl;
+      if (type === 'check') { ctl = h('input', { id, type: 'checkbox' }); ctl.checked = key === 'showTitle' ? g[key] !== false : !!g[key]; ctl.addEventListener('change', () => { g[key] = ctl.checked; tick(); }); return h('div', { class: 'bld-field' }, h('label', { for: id, class: 'chk' }, ctl, label)); }
+      if (type === 'select') { ctl = h('select', { id }, options.map(o => h('option', { value: o }, o.toUpperCase()))); ctl.value = g[key] || options[0]; ctl.addEventListener('change', () => { g[key] = ctl.value; tick(); }); }
+      else { ctl = h('input', { id, type: 'text', autocomplete: 'off', placeholder: hint || '' }); ctl.value = g[key] || ''; ctl.addEventListener('input', () => { g[key] = ctl.value.trim(); tick(); }); }
+      return h('div', { class: 'bld-field' }, h('label', { for: id }, label), ctl);
+    };
+    const look = h('details', { class: 'bld-look' }, h('summary', {}, 'PAGE LOOK: BANNER, COLOURS, WIDTH, BACKGROUND'),
       h('div', { class: 'adm-img' }, h('span', { class: 'adm-lbl' }, 'BANNER PICTURE (WIDE, ACROSS THE TOP)'), imageControl(() => g.banner || '', v => { g.banner = v; }, 1800)),
-      h('div', { class: 'bld-field' }, h('label', { for: 'bld-acc' }, 'ACCENT COLOUR'), accent));
+      h('div', { class: 'bld-field' }, h('label', { for: 'bld-acc' }, 'ACCENT COLOUR (PRESET)'), accent),
+      simple('OR YOUR OWN ACCENT COLOUR (HEX, LIKE #ff8800)', 'accentHex', 'text', null, '#ff8800'),
+      simple('PAGE WIDTH', 'width', 'select', ['normal', 'narrow', 'wide']),
+      simple('BACKGROUND', 'bg', 'select', ['default', 'plain', 'grid', 'dots', 'stars']),
+      simple('SUBTITLE UNDER THE TITLE (OPTIONAL)', 'subtitle', 'text', null, 'A SHORT LINE'),
+      simple('SHOW THE PAGE TITLE', 'showTitle', 'check'),
+      simple('HIDE THE SPINNING GEAR BEHIND THE TITLE', 'hideGear', 'check'));
 
     const prevBtn = btn('SHOW PREVIEW', () => { previewOn = !previewOn; preview.hidden = !previewOn; prevBtn.textContent = previewOn ? 'HIDE PREVIEW' : 'SHOW PREVIEW'; refreshPreview(); });
     root.append(
-      h('div', { class: 'bld-bar-top' }, btn('< BACK TO GAMES', () => kit.back()), h('b', {}, 'PAGE BUILDER: ' + (g.name || g.id)), prevBtn),
+      h('div', { class: 'bld-bar-top' }, btn('< BACK TO GAMES', () => kit.back()), h('b', {}, (kit.isPage ? 'PAGE BUILDER: ' : 'PAGE BUILDER: ') + (g.name || g.id)), prevBtn),
       h('p', { class: 'adm-note' }, 'CLICK OR DRAG AN ELEMENT INTO THE PAGE. DRAG THE :: HANDLE TO REORDER (OR USE UP / DOWN). EVERYTHING SAVES AS A DRAFT; PRESS PUBLISH WHEN YOU ARE HAPPY.'),
       look, palette, starters, list, preview);
     paint();

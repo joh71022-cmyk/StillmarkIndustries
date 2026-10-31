@@ -5,6 +5,7 @@
 // only needs the mod code to "publish". Two kinds of request are accepted:
 //   POST /          JSON  - status / setup / forget / publish (site-data.js and pictures in uploads/ only)
 //   POST /upload    file  - a game download, streamed into a GitHub Release called "downloads"
+//   GET /poll?id=.. and POST /poll/vote  - public voting for polls and ratings (no mod code; one vote per person)
 //
 // Needs:  Secret    MOD_PASSCODE   the mod code (the same thing typed after "mod pas")
 //         Variable  REPO           e.g. joh71022-cmyk/HOLLOWBLADEINDUSTRIES
@@ -29,7 +30,7 @@ export default {
     const allowed = origin === env.ALLOWED_ORIGIN || localOk;
     const cors = {
       'Access-Control-Allow-Origin': allowed ? origin : env.ALLOWED_ORIGIN,
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, X-Mod-Code',
       'Vary': 'Origin'
     };
@@ -37,12 +38,14 @@ export default {
       new Response(JSON.stringify(obj), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    if (req.method !== 'POST') return reply({ ok: false, error: 'POST ONLY' }, 405);
+    const path0 = new URL(req.url).pathname;
+    if (req.method !== 'POST' && !(req.method === 'GET' && path0 === '/poll')) return reply({ ok: false, error: 'POST ONLY' }, 405);
     if (!allowed) return reply({ ok: false, error: 'ORIGIN NOT ALLOWED' }, 403);
     if (!env.MOD_PASSCODE || !env.REPO) return reply({ ok: false, error: 'SERVICE IS NOT SET UP YET (MISSING MOD_PASSCODE OR REPO)' }, 500);
 
     const kv = env.STORE;
     const url = new URL(req.url);
+    if (url.pathname === '/poll' || url.pathname === '/poll/vote') return pollRoute(req, env, url, reply, kv);
     const isUpload = url.pathname === '/upload';
 
     let body = {};
@@ -88,7 +91,7 @@ export default {
       };
       let rel = await gh('/releases/tags/downloads');
       if (rel.status === 404) {
-        rel = await gh('/releases', { method: 'POST', body: JSON.stringify({ tag_name: 'downloads', name: 'Game downloads', body: 'Files offered for download on the Hollowblade Industries website.', draft: false, prerelease: false }) });
+        rel = await gh('/releases', { method: 'POST', body: JSON.stringify({ tag_name: 'downloads', name: 'Game downloads', body: 'Files offered for download on the Stillmark Industries website.', draft: false, prerelease: false }) });
       }
       if (!rel.ok) return fail(rel, 'WHEN OPENING THE DOWNLOADS RELEASE');
       const release = await rel.json();
@@ -162,3 +165,66 @@ export default {
     return reply({ ok: true, saved: files.map(f => f.path) });
   }
 };
+
+/* ---------- public voting for polls and ratings ---------- */
+const POLL_ID = /^[a-z0-9][a-z0-9-]{0,40}\.[a-z0-9]{4,20}\.\d{1,4}$/;
+
+// the published site data says which polls exist, so votes can only go to real polls
+async function loadPolls(env) {
+  const cache = caches.default, key = new Request('https://polls.internal/' + env.REPO);
+  let res = await cache.match(key);
+  if (!res) {
+    const raw = await fetch('https://raw.githubusercontent.com/' + env.REPO + '/main/site-data.js', { headers: { 'User-Agent': 'stillmark-polls' } });
+    if (!raw.ok) return null;
+    const text = await raw.text(), i = text.indexOf('window.SITE_DATA = ');
+    let data; try { data = JSON.parse(text.slice(text.indexOf('{', i), text.lastIndexOf('}') + 1)); } catch (e) { return null; }
+    const polls = {};
+    for (const owner of [...(data.games || []), ...(data.pages || [])]) {
+      for (const b of owner.blocks || []) {
+        if ((b.type === 'poll' || b.type === 'rating') && b.uid) {
+          polls[owner.id + '.' + b.uid + '.' + (Number(b.rev) || 0)] = { n: b.type === 'rating' ? 5 : (b.options || []).length, closes: String(b.closes || '') };
+        }
+      }
+    }
+    res = new Response(JSON.stringify(polls), { headers: { 'Cache-Control': 'max-age=60' } });
+    await cache.put(key, res.clone());
+  }
+  return res.json();
+}
+
+async function pollRoute(req, env, url, reply, kv) {
+  if (!kv) return reply({ ok: false, error: 'VOTING NEEDS THE SERVICE STORAGE (KV)' }, 500);
+  let id = url.searchParams.get('id') || '', choice = -1;
+  if (req.method === 'POST') {
+    let b; try { b = await req.json(); } catch (e) { return reply({ ok: false, error: 'BAD REQUEST' }, 400); }
+    id = String(b.id || ''); choice = Number.isInteger(b.choice) ? b.choice : -1;
+  }
+  if (!POLL_ID.test(id)) return reply({ ok: false, error: 'BAD POLL' }, 400);
+  const polls = await loadPolls(env);
+  if (!polls) return reply({ ok: false, error: 'COULD NOT CHECK THE POLL. TRY AGAIN IN A MOMENT.' }, 502);
+  const def = polls[id];
+  if (!def || !def.n) return reply({ ok: false, error: 'THIS POLL IS NOT LIVE YET. PUBLISH THE PAGE FIRST.' }, 404);
+
+  // one vote per person: a private fingerprint of the visitor's address, never stored in the clear
+  const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip + ':' + env.MOD_PASSCODE)))).map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 24);
+  const tallyKey = 'poll:' + id + ':t', markKey = 'poll:' + id + ':ip:' + hash;
+  let tally; try { tally = JSON.parse((await kv.get(tallyKey)) || 'null'); } catch (e) { tally = null; }
+  tally = tally && Array.isArray(tally.c) ? tally : { c: [] };
+  while (tally.c.length < def.n) tally.c.push(0);
+  tally.c = tally.c.slice(0, def.n);
+  let voted = await kv.get(markKey);
+  const closed = !!def.closes && Date.now() > Date.parse(def.closes.replace(' ', 'T') + 'Z');
+  const summary = () => ({ ok: true, counts: tally.c, total: tally.c.reduce((a, b) => a + b, 0), voted: voted === null ? null : Number(voted), closed });
+
+  if (req.method === 'POST') {
+    if (closed) return reply({ ...summary(), ok: false, error: 'THIS POLL IS CLOSED' }, 403);
+    if (choice < 0 || choice >= def.n) return reply({ ok: false, error: 'BAD CHOICE' }, 400);
+    if (voted !== null) return reply({ ...summary(), already: true });
+    tally.c[choice]++;
+    await kv.put(markKey, String(choice), { expirationTtl: 60 * 60 * 24 * 365 });
+    await kv.put(tallyKey, JSON.stringify(tally));
+    voted = String(choice);
+  }
+  return reply(summary());
+}

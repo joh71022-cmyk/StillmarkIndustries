@@ -388,7 +388,7 @@
     if (sess.get('hb-booted') || reduce) { boot.remove(); body.classList.add('ready'); }
     else {
       booting = true;
-      const lines = ['HOLLOWBLADE INDUSTRIES BIOS v2.0', '(C) HOLLOWBLADE INDUSTRIES', '',
+      const lines = ['STILLMARK INDUSTRIES BIOS v2.0', '(C) STILLMARK INDUSTRIES', '',
         'CHECKING GEARBOX ......... OK', 'CALIBRATING BLADES ....... OK', 'LOADING HOLLOW_BLADE.EXE . OK',
         'LINKING DISCORD UPLINK ... OK', 'SPINNING UP COGS ......... OK', '', 'ALL SYSTEMS NOMINAL.'];
       const log = $('.log', boot), bar = $('.bar i', boot);
@@ -522,7 +522,7 @@
 
   /* ---------- custom cursor ---------- */
   let ring = null, dot = null;
-  if (fine && !reduce) {
+  if (fine && !reduce && !body.classList.contains('no-cursor')) {
     body.classList.add('has-cur');
     dot = document.createElement('div'); dot.className = 'cur';
     ring = document.createElement('div'); ring.className = 'cur-ring';
@@ -545,7 +545,7 @@
   let W, H, dots = [], sparks = [];
   function size() {
     W = cv.width = innerWidth * dpr; H = cv.height = innerHeight * dpr;
-    const n = Math.round(innerWidth * innerHeight / 12000);
+    const n = body.classList.contains('no-dust') ? 0 : Math.round(innerWidth * innerHeight / 12000);
     dots = Array.from({ length: n }, () => ({
       x: Math.random() * W, y: Math.random() * H, vx: 0,
       s: (1 + Math.random() * 2) * dpr, v: (.1 + Math.random() * .4) * dpr, p: Math.random() * 6.28

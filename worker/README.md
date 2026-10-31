@@ -55,3 +55,17 @@ The mod panel sends the file to `POST /upload`, and the service streams it into 
 - Uploading a file with the same name replaces the old one.
 - Needs the same token as publishing (**Contents: Read and write** covers releases too).
 - After changing `worker.js`, redeploy it (`wrangler deploy`, or paste the new code into the Cloudflare editor).
+
+## Polls and star ratings (public voting)
+
+Poll and Star Rating elements let visitors vote. Their votes go to this service (`GET /poll`, `POST /poll/vote`);
+no mod code is needed to vote.
+
+- **One vote per person.** The service keeps only a private fingerprint of the visitor's address, never the address itself.
+- **Only real polls.** A vote is accepted only if the poll exists in your published `site-data.js`, so nobody can make up polls.
+- **Goes live on publish.** A poll shows "not live yet" until you publish the page it is on.
+- **Reset votes.** In the builder, "RESET VOTES" starts a fresh count (use it if you change the options).
+- **Closing date.** Optional. After it, the poll shows results and refuses new votes.
+- **Limits (free plan).** Each vote uses 2 of Cloudflare KV's 1,000 free writes per day, so about 500 votes a day.
+  Two votes at the very same instant can occasionally count as one. That is fine for a community site.
+- Like the upload feature, polls need the `STORE` KV binding.
