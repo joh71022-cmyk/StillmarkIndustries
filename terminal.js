@@ -30,6 +30,23 @@
     top.appendChild(b);
   }
 
+  /* ---------- the account button (top of every page): log in, or open your profile ---------- */
+  const acctBtn = document.createElement('button');
+  acctBtn.type = 'button'; acctBtn.className = 'lk acct-btn';
+  const acctLabel = () => { try { const m = localStorage.getItem('hb-session') && JSON.parse(localStorage.getItem('hb-me') || 'null'); return m && m.name ? m.name.toUpperCase() : 'LOG IN'; } catch (e) { return 'LOG IN'; } };
+  acctBtn.textContent = acctLabel();
+  let cmLoading = null;
+  const withCommunity = () => cmLoading || (cmLoading = new Promise((ok, no) => {
+    if (window.HBCommunity) return ok();
+    const sc = document.createElement('script'); sc.src = 'community.js?v=' + (window.HB_VER || '1'); sc.onload = ok; sc.onerror = () => { cmLoading = null; no(); }; document.head.appendChild(sc);
+  }));
+  acctBtn.addEventListener('click', () => { HB.fx && HB.fx.beep && HB.fx.beep(1); withCommunity().then(() => window.HBCommunity.account()).catch(() => HB.toast && HB.toast('ACCOUNTS ARE OFFLINE RIGHT NOW')); });
+  window.addEventListener('hb-account', () => { acctBtn.textContent = acctLabel(); });
+  withCommunity().catch(() => {});
+  if (top) top.appendChild(acctBtn);
+  const quickNav = $('.quick');
+  if (quickNav) quickNav.insertBefore(acctBtn, quickNav.querySelector('[data-term]'));
+
   /* ---------- visit counter ---------- */
   // counted once per real visitor (address + browser) by the service, so refreshing never adds a visit
   let visits = 0;

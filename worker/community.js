@@ -223,7 +223,7 @@ export async function communityMod(action, body, env, reply) {
       posts: await one("SELECT COUNT(*) AS n FROM posts WHERE status = 'ok'"),
       pending: (await one("SELECT COUNT(*) AS n FROM posts WHERE status = 'pending'")) + (await one("SELECT COUNT(*) AS n FROM threads WHERE status = 'pending'")),
       hidden: (await one("SELECT COUNT(*) AS n FROM posts WHERE status = 'hidden'")) + (await one("SELECT COUNT(*) AS n FROM threads WHERE status = 'hidden'")),
-      bans: await one('SELECT COUNT(*) AS n FROM bans'), users: await one('SELECT COUNT(*) AS n FROM users'), early: await one('SELECT COUNT(*) AS n FROM users WHERE early = 1') });
+      bans: await one('SELECT COUNT(*) AS n FROM bans'), users: await one('SELECT COUNT(*) AS n FROM users'), early: await one('SELECT COUNT(*) AS n FROM users WHERE early = 1'), earlyWaiting: await one('SELECT COUNT(*) AS n FROM users WHERE early = 2') });
   }
   if (action === 'c_list') {
     const view = ['recent', 'pending', 'reports', 'hidden'].includes(body.view) ? body.view : 'recent', page = int(body.page, 0, 0, 1000);

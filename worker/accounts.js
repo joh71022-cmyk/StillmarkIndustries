@@ -34,7 +34,8 @@ export async function userFromToken(db, token) {
   const u = await db.prepare('SELECT u.*, s.th AS _th FROM sessions s JOIN users u ON u.id = s.user WHERE s.th = ? AND s.expires > ?').bind(th, Math.floor(Date.now() / 1000)).first();
   return u || null;
 }
-const mine = u => ({ id: u.id, name: u.name, bio: u.bio, contact: u.contact, early: !!u.early, avatar: !!u.av, created: u.created });
+const EARLY = ['none', 'approved', 'pending', 'declined'];
+const mine = u => ({ id: u.id, name: u.name, bio: u.bio, contact: u.contact, early: EARLY[u.early] || 'none', earlyReason: u.early_reason || '', avatar: !!u.av, created: u.created });
 
 async function startSession(db, userId, t) {
   const token = rand(32), th = await sha('session:' + token);
@@ -69,9 +70,11 @@ export async function accountRoute(route, b, env, reply, c) {
     const bad = vet(s, name, { name, min: 3 }); if (bad) return reply({ ok: false, error: bad }, 400);
     const pb = passwordProblem(b.password, name); if (pb) return reply({ ok: false, error: pb }, 400);
     if (await db.prepare('SELECT 1 AS x FROM users WHERE lname = ?').bind(lname(name)).first()) return reply({ ok: false, error: 'THAT NAME IS TAKEN.' }, 409);
+    let reason = '';
+    if (b.early) { reason = clip(b.earlyReason, 300).trim(); if (reason.length < 10) return reply({ ok: false, error: 'TELL US WHY YOU WANT EARLY ACCESS (AT LEAST 10 CHARACTERS), OR UNTICK THE BOX.' }, 400); const rb = vet(s, reason, { min: 10 }); if (rb) return reply({ ok: false, error: 'YOUR REASON: ' + rb }, 400); }
     const salt = rand(16), hash = await pbkdf2(b.password, salt, ITER);
     let r;
-    try { r = await db.prepare('INSERT INTO users (name, lname, salt, hash, iter, created, contact, early, ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(name, lname(name), salt, hash, ITER, t, clip(b.contact, 60).trim(), b.early ? 1 : 0, me).run(); }
+    try { r = await db.prepare('INSERT INTO users (name, lname, salt, hash, iter, created, contact, early, early_reason, ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(name, lname(name), salt, hash, ITER, t, clip(b.contact, 60).trim(), reason ? 2 : 0, reason, me).run(); }
     catch (e) { return reply({ ok: false, error: 'THAT NAME IS TAKEN.' }, 409); }
     await bump(kv, 'rg:' + me, 3600);
     const token = await startSession(db, r.meta.last_row_id, t);
@@ -105,7 +108,16 @@ export async function accountRoute(route, b, env, reply, c) {
       sets.push('bio = ?'); args.push(bio);
     }
     if (typeof b.contact === 'string') { sets.push('contact = ?'); args.push(clip(b.contact, 60).trim()); }
-    if (typeof b.early === 'boolean') { sets.push('early = ?'); args.push(b.early ? 1 : 0); }
+    if (typeof b.early === 'boolean') {
+      if (!b.early) { sets.push('early = 0', "early_reason = ''"); }                    // leaving the list (or withdrawing the request)
+      else if (u.early === 1 || u.early === 3) { /* already decided by a moderator: nothing to change */ }
+      else {
+        const reason = clip(typeof b.earlyReason === 'string' ? b.earlyReason : u.early_reason, 300).trim();
+        if (reason.length < 10) return reply({ ok: false, error: 'TELL US WHY YOU WANT EARLY ACCESS (AT LEAST 10 CHARACTERS).' }, 400);
+        const rb = vet(s, reason, { min: 10 }); if (rb) return reply({ ok: false, error: 'YOUR REASON: ' + rb }, 400);
+        sets.push('early = 2', 'early_reason = ?'); args.push(reason);
+      }
+    }
     if (typeof b.avatar === 'string') {
       if (b.avatar === '') { sets.push("avatar = ''", 'av = 0'); }
       else if (avatarOk(b.avatar)) { sets.push('avatar = ?', 'av = 1'); args.push(b.avatar); }
@@ -152,16 +164,17 @@ export async function accountMod(action, body, env, reply, { clip, int }) {
   if (action === 'c_users') {
     const page = int(body.page, 0, 0, 1000), q = clip(body.q, 30).replace(/[%_\\]/g, m => '\\' + m), where = [], args = [];
     if (q) { where.push("(name LIKE ? ESCAPE '\\' OR contact LIKE ? ESCAPE '\\')"); args.push('%' + q + '%', '%' + q + '%'); }
-    if (body.early) where.push('early = 1');
-    const rows = await db.prepare('SELECT id, name, created, early, contact, banned, av, bio, (SELECT COUNT(*) FROM posts p WHERE p.user = users.id) + (SELECT COUNT(*) FROM threads t WHERE t.user = users.id) AS posts FROM users' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created DESC LIMIT 51 OFFSET ?').bind(...args, page * 50).all();
-    const tot = await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(early), 0) AS e FROM users').first();
-    return reply({ ok: true, users: rows.results.slice(0, 50).map(r => ({ ...r, early: !!r.early, banned: !!r.banned, av: !!r.av })), more: rows.results.length > 50, total: tot.n, early: tot.e });
+    const E = { pending: 2, approved: 1, declined: 3 };
+    if (E[body.early]) { where.push('early = ?'); args.push(E[body.early]); } else if (body.early === 'any') where.push('early > 0');
+    const rows = await db.prepare('SELECT id, name, created, early, early_reason, contact, banned, av, bio, (SELECT COUNT(*) FROM posts p WHERE p.user = users.id) + (SELECT COUNT(*) FROM threads t WHERE t.user = users.id) AS posts FROM users' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created DESC LIMIT 51 OFFSET ?').bind(...args, page * 50).all();
+    const tot = await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(early = 1), 0) AS e, COALESCE(SUM(early = 2), 0) AS w FROM users').first();
+    return reply({ ok: true, users: rows.results.slice(0, 50).map(r => ({ ...r, early: EARLY[r.early] || 'none', banned: !!r.banned, av: !!r.av })), more: rows.results.length > 50, total: tot.n, early: tot.e, waiting: tot.w });
   }
   const id = int(body.id, 0, 0, 1e12);
   if (action === 'c_user_set') {
     const sets = [], args = [];
     if (typeof body.banned === 'boolean') { sets.push('banned = ?'); args.push(body.banned ? 1 : 0); }
-    if (typeof body.early === 'boolean') { sets.push('early = ?'); args.push(body.early ? 1 : 0); }
+    if (EARLY.includes(body.early)) { sets.push('early = ?'); args.push(EARLY.indexOf(body.early)); if (body.early === 'none') sets.push("early_reason = ''"); }
     if (!sets.length) return reply({ ok: false, error: 'NOTHING TO CHANGE' }, 400);
     const r = await db.prepare('UPDATE users SET ' + sets.join(', ') + ' WHERE id = ?').bind(...args, id).run();
     if (body.banned === true) await db.prepare('DELETE FROM sessions WHERE user = ?').bind(id).run();

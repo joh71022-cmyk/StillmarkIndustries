@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS users (
   created INTEGER NOT NULL,
   bio TEXT NOT NULL DEFAULT '',
   contact TEXT NOT NULL DEFAULT '',         -- optional, only moderators see it (for early access)
-  early INTEGER NOT NULL DEFAULT 0,         -- on the early access list
+  early INTEGER NOT NULL DEFAULT 0,         -- early access: 0 none, 1 approved, 2 waiting for a moderator, 3 declined
+  early_reason TEXT NOT NULL DEFAULT '',    -- why they want it
   avatar TEXT NOT NULL DEFAULT '',          -- a small picture kept as a data address
   av INTEGER NOT NULL DEFAULT 0,
   banned INTEGER NOT NULL DEFAULT 0,

@@ -1,6 +1,7 @@
 /* The community for visitors: forum threads, replies, page comments and reviews.
    Everything people write is put on the page as plain text, never as HTML. */
 (() => {
+  if (window.HBCommunity) return;   // already loaded (the account button and the page can both ask for it)
   const API = (location.hostname === 'localhost' && localStorage.getItem('hb-api')) || window.HB_API || 'https://hollowblade-publish.joh71022.workers.dev';
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const store = {
@@ -126,16 +127,18 @@
         const f = el('form', 'cm-form'); f.setAttribute('novalidate', ''); const note = el('p', 'cm-note');
         const name = input('text', '', 20, 'username'), pw = input('password', '', 100, mode === 'new' ? 'new-password' : 'current-password');
         f.append(field('NAME', name), field(mode === 'new' ? 'PASSWORD (8 OR MORE CHARACTERS)' : 'PASSWORD', pw));
-        let contact, early;
+        let contact, early, reason;
         if (mode === 'new') {
           contact = input('text', 'OPTIONAL, LIKE A DISCORD NAME', 60); f.append(field('HOW THE TEAM CAN REACH YOU', contact));
-          early = input('checkbox'); const l = el('label', 'cm-chk'); l.append(early, document.createTextNode(' PUT ME ON THE EARLY ACCESS LIST')); f.append(l);
+          early = input('checkbox'); const l = el('label', 'cm-chk'); l.append(early, document.createTextNode(' I WANT TO BE AN EARLY ACCESS TESTER')); f.append(l);
+          reason = el('textarea'); reason.rows = 3; reason.maxLength = 300; reason.placeholder = 'WHY DO YOU WANT EARLY ACCESS? (THE TEAM READS EVERY REQUEST)'; reason.hidden = true; reason.setAttribute('aria-label', 'Why you want early access'); f.append(reason);
+          early.addEventListener('change', () => { reason.hidden = !early.checked; if (early.checked) reason.focus(); });
           f.append(el('p', 'cm-note', 'NO EMAIL NEEDED. YOUR NAME IS YOURS: NO ONE ELSE CAN POST WITH IT. IF YOU FORGET YOUR PASSWORD, ASK A MODERATOR TO RESET IT.'));
         }
         const go = el('button', 'cm-go', mode === 'new' ? 'CREATE ACCOUNT' : 'LOG IN'); go.type = 'submit'; f.append(go, note);
         f.addEventListener('submit', async e => {
           e.preventDefault(); note.className = 'cm-note'; go.disabled = true; note.textContent = 'ONE MOMENT...';
-          const r = await call(mode === 'new' ? '/c/register' : '/c/login', mode === 'new' ? { name: name.value, password: pw.value, contact: contact.value, early: early.checked } : { name: name.value, password: pw.value });
+          const r = await call(mode === 'new' ? '/c/register' : '/c/login', mode === 'new' ? { name: name.value, password: pw.value, contact: contact.value, early: early.checked, earlyReason: reason.value } : { name: name.value, password: pw.value });
           go.disabled = false;
           if (!r.ok) { note.textContent = r.error || 'SOMETHING WENT WRONG.'; note.classList.add('err'); return; }
           setSession(r.token, r.me); close();
@@ -168,12 +171,17 @@
       row.lastChild.append(file, rm); paintAv();
       const bio = el('textarea'); bio.rows = 3; bio.maxLength = 200; bio.value = me.bio || ''; bio.setAttribute('aria-label', 'About me');
       const contact = input('text', 'OPTIONAL, LIKE A DISCORD NAME', 60); contact.value = me.contact || '';
-      const early = input('checkbox'); early.checked = !!me.early; const el1 = el('label', 'cm-chk'); el1.append(early, document.createTextNode(' EARLY ACCESS LIST: THE TEAM MAY CONTACT ME ABOUT TESTS AND EARLY BUILDS'));
+      const st = me.early || 'none', decided = st === 'approved' || st === 'declined';
+      const early = input('checkbox'); early.checked = st === 'approved' || st === 'pending'; early.disabled = decided;
+      const el1 = el('label', 'cm-chk'); el1.append(early, document.createTextNode(' I WANT TO BE AN EARLY ACCESS TESTER'));
+      const reason = el('textarea'); reason.rows = 3; reason.maxLength = 300; reason.value = me.earlyReason || ''; reason.placeholder = 'WHY DO YOU WANT EARLY ACCESS?'; reason.hidden = !early.checked || decided; reason.setAttribute('aria-label', 'Why you want early access');
+      early.addEventListener('change', () => { reason.hidden = !early.checked; });
+      const estat = el('p', 'cm-note', { none: '', pending: 'YOUR EARLY ACCESS REQUEST IS WAITING FOR THE TEAM TO LOOK AT IT.', approved: 'YOU ARE IN EARLY ACCESS. THE TEAM MAY CONTACT YOU.', declined: 'YOUR EARLY ACCESS REQUEST WAS NOT ACCEPTED THIS TIME.' }[st]);
       const save = el('button', 'cm-go', 'SAVE'); save.type = 'submit';
-      f.append(el('p', 'cm-note', 'LOGGED IN AS ' + me.name), row, field('ABOUT ME', bio), field('HOW THE TEAM CAN REACH YOU (ONLY THE TEAM SEES THIS)', contact), el1, save, note);
+      f.append(el('p', 'cm-note', 'LOGGED IN AS ' + me.name), row, field('ABOUT ME', bio), field('HOW THE TEAM CAN REACH YOU (ONLY THE TEAM SEES THIS)', contact), el1, reason, estat, save, note);
       f.addEventListener('submit', async e => {
         e.preventDefault(); note.className = 'cm-note'; save.disabled = true; note.textContent = 'SAVING...';
-        const r = await call('/c/profile', { bio: bio.value, contact: contact.value, early: early.checked, ...(av !== null ? { avatar: av } : {}) });
+        const r = await call('/c/profile', { bio: bio.value, contact: contact.value, ...(decided ? {} : { early: early.checked, earlyReason: reason.value }), ...(av !== null ? { avatar: av } : {}) });
         save.disabled = false;
         if (!r.ok) { note.textContent = r.error || 'COULD NOT SAVE.'; note.classList.add('err'); return; }
         avVer++; setSession(session, r.me); note.textContent = 'SAVED.'; av = null; paintAv();
@@ -200,12 +208,12 @@
       bar.textContent = '';
       if (me) {
         if (me.avatar) { const im = el('img', 'cm-av'); im.alt = ''; im.width = 28; im.height = 28; im.src = API + '/c/avatar?u=' + me.id + '&v=' + avVer; bar.append(im); }
-        bar.append(el('b', '', me.name), el('small', '', me.early ? 'MEMBER  |  EARLY ACCESS' : 'MEMBER'));
+        bar.append(el('b', '', me.name), el('small', '', 'MEMBER' + ({ approved: '  |  EARLY ACCESS', pending: '  |  EARLY ACCESS REQUESTED' }[me.early] || '')));
         const pr = el('button', 'cm-mini', 'PROFILE'); pr.type = 'button'; pr.addEventListener('click', profileModal);
         const lo = el('button', 'cm-mini', 'LOG OUT'); lo.type = 'button'; lo.addEventListener('click', async () => { await call('/c/logout', {}); setSession(''); });
         bar.append(pr, lo);
       } else {
-        bar.append(el('small', '', 'POSTING AS A GUEST. AN ACCOUNT SAVES YOUR NAME, LETS YOU JOIN THE EARLY ACCESS LIST AND ADD A PICTURE.'));
+        bar.append(el('small', '', 'POSTING AS A GUEST. AN ACCOUNT SAVES YOUR NAME, LETS YOU ASK FOR EARLY ACCESS AND ADD A PICTURE.'));
         const a = el('button', 'cm-go', 'LOG IN'), n = el('button', 'cm-go', 'CREATE ACCOUNT'); a.type = n.type = 'button';
         a.addEventListener('click', () => authModal('login')); n.addEventListener('click', () => authModal('new')); bar.append(a, n);
       }
@@ -331,5 +339,5 @@
     });
   }
 
-  window.HBCommunity = { mountComments, mountForum, mountLatest };
+  window.HBCommunity = { mountComments, mountForum, mountLatest, account: () => (session && me ? profileModal() : authModal('login')) };
 })();
