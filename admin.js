@@ -301,10 +301,15 @@
   const fileText = d => '// Site content (games, devs, socials). The mod panel can edit and publish this file.\nwindow.SITE_DATA = ' + JSON.stringify(d, null, 2) + ';\n';
   const b64 = bytes => { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin); };
 
-  function explain(status) {
-    if (status === 401) return 'GITHUB SAID 401: THE TOKEN WAS REJECTED. IT IS WRONG OR EXPIRED. MAKE A NEW ONE.';
-    if (status === 403 || status === 404) return 'GITHUB SAID ' + status + ': THIS TOKEN IS NOT ALLOWED TO EDIT THAT REPO. CHECK THE REPO NAME, THAT THE TOKEN WAS MADE BY THE ACCOUNT THAT OWNS IT (OR USE A CLASSIC TOKEN WITH THE public_repo BOX TICKED), AND THAT CONTENTS IS SET TO READ AND WRITE.';
-    return 'GITHUB SAID ' + status;
+  // turn GitHub's reply into plain words, including GitHub's own explanation
+  async function explain(res) {
+    let why = '';
+    try { why = ((await res.json()).message || '').toUpperCase(); } catch (e) {}
+    const status = res.status;
+    let msg = 'GITHUB SAID ' + status + '.';
+    if (status === 401) msg += ' THE TOKEN WAS REJECTED. IT IS WRONG OR EXPIRED. MAKE A NEW ONE.';
+    else if (status === 403 || status === 404) msg += ' THE TOKEN CAN READ BUT NOT WRITE TO THIS REPO. EDIT THE TOKEN ON GITHUB: REPOSITORY ACCESS = ONLY SELECT REPOSITORIES > THIS REPO, AND CONTENTS = READ AND WRITE. (OR USE A CLASSIC TOKEN WITH public_repo TICKED.)';
+    return msg + (why ? ' GITHUB SAYS: "' + why + '"' : '');
   }
 
   function publishTab() {
@@ -321,9 +326,9 @@
         const api = 'https://api.github.com/repos/' + r + '/contents/' + path;
         let sh;
         const cur = await fetch(api, { headers: hdr });
-        if (cur.ok) sh = (await cur.json()).sha; else if (cur.status !== 404) throw new Error(explain(cur.status));
+        if (cur.ok) sh = (await cur.json()).sha; else if (cur.status !== 404) throw new Error(await explain(cur));
         const res = await fetch(api, { method: 'PUT', headers: { ...hdr, 'Content-Type': 'application/json' }, body: JSON.stringify({ message, content: text64, sha: sh }) });
-        if (!res.ok) throw new Error(explain(res.status));
+        if (!res.ok) throw new Error(await explain(res));
       };
       try {
         const pub = JSON.parse(JSON.stringify(data));
