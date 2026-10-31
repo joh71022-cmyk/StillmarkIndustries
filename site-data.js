@@ -1,12 +1,35 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvufgm9
+// stamp: mvvurv9n
 window.SITE_DATA = {
   "site": {
     "title": "HOLLOWBLADE INDUSTRIES",
     "soon": "MORE GAMES SOON",
     "ticker": "/// HOLLOW BLADE IS IN DEVELOPMENT /// JOIN THE DISCORD FOR UPDATES /// NEW GAMES INCOMING /// GEARS: TURNING /// BLADES: SHARPENED /// STATUS: ONLINE "
   },
-  "games": [],
+  "games": [
+    {
+      "id": "info-exe",
+      "name": "INFO.EXE",
+      "info": [],
+      "blurb": "",
+      "tagline": "",
+      "status": "",
+      "icon": "uploads/info-exe-icon-7faed034.jpg",
+      "buttons": [],
+      "blocks": [
+        {
+          "type": "text",
+          "text": "There are no current games at the moment we are developing games right now once we get far enough we will make a page\n\nGAME Names:\nTHE HOLLOW AFTER DARK\nHollowBlade"
+        },
+        {
+          "type": "image",
+          "src": "uploads/info-exe-b1-src-a1e6ce6e.jpg",
+          "caption": "",
+          "size": "full"
+        }
+      ]
+    }
+  ],
   "devs": [
     {
       "name": "UnknownService",
