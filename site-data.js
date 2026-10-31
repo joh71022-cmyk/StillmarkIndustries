@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvxgc2w
+// stamp: mvvxhihw
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -109,13 +109,8 @@ window.SITE_DATA = {
       "url": "https://discord.com/users/865600698761609216",
       "main": false,
       "shape": "circle",
-      "avatar": "",
-      "links": [],
-      "pfp": {
-        "cx": 67,
-        "cy": 444,
-        "r": 36
-      }
+      "avatar": "https://cdn.discordapp.com/avatars/865600698761609216/2fb94f18787f0697c67e118cc6f0921c.webp?size=128",
+      "links": []
     }
   ],
   "socials": [
