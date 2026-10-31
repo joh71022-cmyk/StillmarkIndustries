@@ -37,6 +37,7 @@
   // the draft only exists in the browser of whoever edited it with the mod panel
   let draft = null;
   try { draft = JSON.parse(localStorage.getItem('hb-draft') || 'null'); } catch (e) {}
+  window.hbClean = clean;
   window.SITE = clean(draft || window.SITE_DATA || {});
   window.SITE_IS_DRAFT = !!draft;
   const S = window.SITE;

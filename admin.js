@@ -70,6 +70,16 @@
     if (!panel) build();
     panel.hidden = false; HB.fx.ach(); HB.toast('MOD PANEL UNLOCKED');
     render();
+    // start from what is really published, so an old cached page can never overwrite newer changes
+    if (!window.SITE_IS_DRAFT && window.hbClean) {
+      fetch(LIVE_BASE + 'site-data.js?fresh=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(txt => {
+        const i = txt.indexOf('window.SITE_DATA = ');
+        const raw = JSON.parse(txt.slice(txt.indexOf('{', i), txt.lastIndexOf('}') + 1));
+        if (editing || dirty) return;
+        data = JSON.parse(JSON.stringify(window.hbClean(raw)));
+        status.textContent = 'LOADED THE LATEST PUBLISHED VERSION.'; render();
+      }).catch(() => {});
+    }
   }
   function close() { panel.hidden = true; HB.fx.beep(2); if (dirty) location.reload(); }
 
@@ -318,7 +328,7 @@
   }
 
   /* ---------- publish ---------- */
-  const fileText = d => '// Site content (games, devs, socials). The mod panel can edit and publish this file.\nwindow.SITE_DATA = ' + JSON.stringify(d, null, 2) + ';\n';
+  const fileText = (d, stamp) => '// Site content (games, devs, socials). The mod panel can edit and publish this file.\n// stamp: ' + (stamp || Date.now().toString(36)) + '\nwindow.SITE_DATA = ' + JSON.stringify(d, null, 2) + ';\n';
   const b64 = bytes => { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin); };
 
   // turn GitHub's reply into plain words, including GitHub's own explanation
@@ -330,6 +340,21 @@
     if (status === 401) msg += ' THE TOKEN WAS REJECTED. IT IS WRONG OR EXPIRED. MAKE A NEW ONE.';
     else if (status === 403 || status === 404) msg += ' THE TOKEN CAN READ BUT NOT WRITE TO THIS REPO. EDIT THE TOKEN ON GITHUB: REPOSITORY ACCESS = ONLY SELECT REPOSITORIES > THIS REPO, AND CONTENTS = READ AND WRITE. (OR USE A CLASSIC TOKEN WITH public_repo TICKED.)';
     return msg + (why ? ' GITHUB SAYS: "' + why + '"' : '');
+  }
+
+  // after saving to GitHub the site takes a minute or so to rebuild. Watch for our stamp so we can say when it is truly live.
+  const LIVE_BASE = /github\.io$/.test(location.hostname) ? '' : 'https://joh71022-cmyk.github.io/HOLLOWBLADEINDUSTRIES/';
+  async function waitLive(stamp, say) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < 180000) {
+      try {
+        const txt = await (await fetch(LIVE_BASE + 'site-data.js?live=' + Date.now(), { cache: 'no-store' })).text();
+        if (txt.includes('stamp: ' + stamp)) return true;
+      } catch (e) {}
+      say('SAVED ON GITHUB. WAITING FOR THE LIVE SITE TO UPDATE... ' + Math.round((Date.now() - t0) / 1000) + 'S');
+      await new Promise(r => setTimeout(r, 4000));
+    }
+    return false;
   }
 
   function draftButtons() {
@@ -398,13 +423,20 @@
           const path = 'uploads/' + base + '-' + (await sha(m[2])).slice(0, 8) + '.' + (m[1] === 'jpeg' ? 'jpg' : m[1]);
           files.push({ path, content: m[2] }); obj[key] = path;
         }
-        files.push({ path: 'site-data.js', content: b64(new TextEncoder().encode(fileText(pub))) });
+        const stamp = Date.now().toString(36);
+        files.push({ path: 'site-data.js', content: b64(new TextEncoder().encode(fileText(pub, stamp))) });
         const r = await callService({ action: 'publish', files, message: 'Update site content via mod panel' });
         if (r.needSetup || r.badToken) { paintSetup(r.error || 'THE SAVED TOKEN NO LONGER WORKS.'); return HB.fx.err(); }
         if (!r.ok) throw new Error(r.error || 'THE PUBLISH SERVICE SAID ' + r.status);
         data = pub; try { localStorage.removeItem('hb-draft'); } catch (e) {}
-        say('PUBLISHED! THE LIVE SITE UPDATES IN ABOUT A MINUTE (HARD-REFRESH WITH CTRL+SHIFT+R).', true);
-        HB.fx.ach(); HB.toast('PUBLISHED');
+        HB.fx.ok(); say('SAVED ON GITHUB. WAITING FOR THE LIVE SITE TO UPDATE...', true);
+        const live = await waitLive(stamp, t => say(t, true));
+        if (live) {
+          say('IT IS LIVE NOW! PRESS RELOAD TO SEE IT.', true); HB.fx.ach(); HB.toast('LIVE');
+          if (!msg.parentNode.querySelector('.reload-btn')) msg.after(btn('RELOAD NOW', () => location.reload(), 'big reload-btn'));
+        } else {
+          say('SAVED, BUT GITHUB IS TAKING LONGER THAN 3 MINUTES TO UPDATE. WAIT A BIT, THEN HARD-REFRESH (CTRL+SHIFT+R).', true);
+        }
       } catch (e) { say('FAILED: ' + e.message); HB.fx.err(); }
     }
 
