@@ -781,3 +781,7 @@ html[data-platform="phone"] .dev strong { font-size:.9rem; }
 html[data-platform="phone"] .tiktok-old { padding:.8rem 1rem; }
 html[data-platform="phone"] .tiktok b { font-size:.8rem; letter-spacing:.06em; overflow-wrap:anywhere; }
 html[data-platform="phone"] .toast { white-space:normal; width:max-content; max-width:86vw; text-align:center; font-size:.8rem; letter-spacing:.12em; }
+html[data-platform="phone"] .bicon { left:2.5%; width:clamp(26px, 8vw, 34px); }
+html[data-platform="phone"] .banner span { padding:0 11% 0 13%; }
+html[data-platform="phone"] .banner { font-size:clamp(.7rem, 3.3vw, 1.1rem); letter-spacing:.05em; }
+html[data-platform="phone"] .banner span { padding:0 9% 0 14%; }
