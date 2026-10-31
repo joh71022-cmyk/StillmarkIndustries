@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvwaypdy
+// stamp: mvwbf4s8
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -94,6 +94,59 @@ window.SITE_DATA = {
           "type": "marquee",
           "text": "/// Everything you see in here might not be final ///",
           "speed": "slow",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        }
+      ]
+    },
+    {
+      "id": "hollow-blade-vr",
+      "name": "hollow blade vr",
+      "info": [],
+      "blurb": "",
+      "tagline": "",
+      "status": "In development",
+      "icon": "uploads/hollow-blade-vr-icon-10ede8dc.png",
+      "buttons": [],
+      "blocks": [
+        {
+          "type": "image",
+          "src": "uploads/hollow-blade-vr-b0-src-f39981ad.png",
+          "caption": "",
+          "size": "small",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        },
+        {
+          "type": "text",
+          "text": "This game is currently being made please wait might take a while...",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        },
+        {
+          "type": "divider",
+          "style": "line",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        },
+        {
+          "type": "comments",
+          "title": "COMMENTS",
+          "ratings": false,
+          "uid": "mek1cyqv",
+          "rev": "0",
           "look": "plain",
           "align": "left",
           "width": "full",
