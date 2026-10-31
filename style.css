@@ -785,3 +785,14 @@ html[data-platform="phone"] .bicon { left:2.5%; width:clamp(26px, 8vw, 34px); }
 html[data-platform="phone"] .banner span { padding:0 11% 0 13%; }
 html[data-platform="phone"] .banner { font-size:clamp(.7rem, 3.3vw, 1.1rem); letter-spacing:.05em; }
 html[data-platform="phone"] .banner span { padding:0 9% 0 14%; }
+
+/* community: the hidden attribute must win over the button styles, and the search row must wrap */
+.cm-more[hidden], .cm-form [hidden], .cm-note[hidden], .cm-newbox[hidden], .cm-as[hidden] { display:none !important; }
+.cm-tools { flex-wrap:wrap; }
+.cm-tools input[type=search] { flex:1 1 150px; min-width:0; }
+html[data-platform="phone"] .cm-tools input[type=search] { flex:1 1 100%; }
+html[data-platform="phone"] .cm-tools select { flex:1 1 40%; }
+html[data-platform="phone"] .cm-tools .cm-go { flex:1 1 50%; }
+
+/* tablets scale smoothly with the screen too */
+html[data-platform="tablet"] { font-size:clamp(15px, 2vw, 19px); }
