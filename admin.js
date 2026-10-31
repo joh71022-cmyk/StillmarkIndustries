@@ -18,13 +18,27 @@
     return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
   };
   const fail = () => { if (++fails >= 5) { lockUntil = Date.now() + 60000; fails = 0; } return false; };
+  // the mod code you type stays in memory only; it is what the publish service checks
+  let sessionCode = '';
+  async function callService(body) {
+    const res = await fetch(pubUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passphrase: sessionCode, ...body }) });
+    let j = {}; try { j = await res.json(); } catch (e) {}
+    return { status: res.status, ...j, ok: res.ok && j.ok !== false };
+  }
   async function attempt(args) {
     if (Date.now() < lockUntil) return false;
-    if ((args[0] || '').toLowerCase() !== 'pas' || !args[1] || !(window.crypto && crypto.subtle)) return fail();
-    let h = '';
-    try { h = await sha('hollowblade-mod:' + args[1]); } catch (e) { return fail(); }
-    if (h !== HASH) return fail();
-    fails = 0; open(); return true;
+    const code = args[1] || '';
+    if ((args[0] || '').toLowerCase() !== 'pas' || !code) return fail();
+    let ok = false;
+    try { ok = !!(window.crypto && crypto.subtle) && (await sha('hollowblade-mod:' + code)) === HASH; } catch (e) {}
+    if (!ok && pubUrl()) {   // a different code is allowed if the publish service accepts it
+      try {
+        const res = await fetch(pubUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passphrase: code, action: 'status' }) });
+        ok = res.ok;
+      } catch (e) { ok = false; }
+    }
+    if (!ok) return fail();
+    sessionCode = code; fails = 0; open(); return true;
   }
   window.HBAdmin = { attempt };
 
@@ -330,14 +344,50 @@
 
   const publishTab = () => (pubUrl() ? serviceTab(pubUrl()) : tokenTab());
 
-  // publish through the service: the GitHub token stays on the service as a secret
+  // publish through the service: the GitHub token is saved there once and never comes back to a browser
   function serviceTab(url) {
-    const pass = h('input', { type: 'password', id: 'pub-pass', name: 'pp-' + Math.random().toString(36).slice(2), autocomplete: 'new-password', 'data-lpignore': 'true', 'data-1p-ignore': 'true' });
+    const box = h('div', { class: 'adm-form' }, h('p', { class: 'adm-note' }, 'CHECKING THE PUBLISH SERVICE...'));
     const msg = h('p', { class: 'adm-msg' });
-    const go = btn('PUBLISH', async () => {
-      const p = pass.value;
-      if (!p) { msg.className = 'adm-msg'; msg.textContent = 'TYPE THE PUBLISH PASSPHRASE FIRST.'; return HB.fx.err(); }
-      msg.className = 'adm-msg ok'; msg.textContent = 'PUBLISHING...';
+    const say = (t, ok) => { msg.className = 'adm-msg' + (ok ? ' ok' : ''); msg.textContent = t; };
+
+    const head = () => [
+      h('h4', {}, 'YOUR EDITS ARE A DRAFT'),
+      h('p', { class: 'adm-note' }, 'ONLY YOU CAN SEE THEM, IN THIS BROWSER. PUBLISH TO MAKE THEM LIVE FOR EVERYONE.'),
+      draftButtons()
+    ];
+
+    const paintSetup = (why) => {
+      const token = h('input', { type: 'password', id: 'pub-token', name: 'tk-' + Math.random().toString(36).slice(2), autocomplete: 'new-password', 'data-lpignore': 'true', 'data-1p-ignore': 'true', placeholder: 'github_pat_...' });
+      box.textContent = '';
+      box.append(...head(),
+        h('h4', {}, 'ONE-TIME SETUP'),
+        h('p', { class: 'adm-note' }, (why || 'THE SERVICE DOES NOT HAVE A GITHUB TOKEN YET.') + ' PASTE IT ONCE. IT IS SAVED ON THE SERVICE, NEVER IN THIS BROWSER, AND NEVER SHOWN AGAIN. AFTER THIS THERE IS JUST A PUBLISH BUTTON.'),
+        h('label', { for: 'pub-token' }, 'GITHUB TOKEN', token), msg,
+        h('div', { class: 'adm-btns' }, btn('SAVE TOKEN', async () => {
+          const t = token.value.trim();
+          if (!t) { say('PASTE THE TOKEN FIRST.'); return HB.fx.err(); }
+          say('CHECKING THE TOKEN WITH GITHUB...', true);
+          try {
+            const r = await callService({ action: 'setup', token: t });
+            if (!r.ok) throw new Error(r.error || 'THE PUBLISH SERVICE SAID ' + r.status);
+            token.value = ''; HB.fx.ach(); HB.toast('TOKEN SAVED'); paintReady();
+          } catch (e) { say('FAILED: ' + e.message); HB.fx.err(); }
+        }, 'big')));
+    };
+
+    const paintReady = () => {
+      box.textContent = '';
+      const forget = btn('CHANGE TOKEN', async () => {
+        try { await callService({ action: 'forget' }); } catch (e) {}
+        paintSetup('YOU CAN ADD A NEW TOKEN NOW.');
+      });
+      box.append(...head(), h('h4', {}, 'PUBLISH'), msg,
+        h('div', { class: 'adm-btns' }, btn('PUBLISH', publish, 'big'), forget,
+          PUBLISH_URL ? null : btn('STOP USING THE SERVICE', () => { try { localStorage.removeItem('hb-pub-url'); } catch (e) {} render(); })));
+    };
+
+    async function publish() {
+      say('PUBLISHING...', true);
       try {
         const pub = JSON.parse(JSON.stringify(data)), files = [], pics = [];
         pub.games.forEach(g => { if (isData(g.icon)) pics.push([g, 'icon', g.id + '-icon']); });
@@ -349,23 +399,22 @@
           files.push({ path, content: m[2] }); obj[key] = path;
         }
         files.push({ path: 'site-data.js', content: b64(new TextEncoder().encode(fileText(pub))) });
-        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passphrase: p, files, message: 'Update site content via mod panel' }) });
-        let j = {}; try { j = await res.json(); } catch (e) {}
-        if (!res.ok || !j.ok) throw new Error(j.error || 'THE PUBLISH SERVICE SAID ' + res.status);
-        pass.value = ''; data = pub; try { localStorage.removeItem('hb-draft'); } catch (e) {}
-        msg.textContent = 'PUBLISHED! THE LIVE SITE UPDATES IN ABOUT A MINUTE (HARD-REFRESH WITH CTRL+SHIFT+R).';
+        const r = await callService({ action: 'publish', files, message: 'Update site content via mod panel' });
+        if (r.needSetup || r.badToken) { paintSetup(r.error || 'THE SAVED TOKEN NO LONGER WORKS.'); return HB.fx.err(); }
+        if (!r.ok) throw new Error(r.error || 'THE PUBLISH SERVICE SAID ' + r.status);
+        data = pub; try { localStorage.removeItem('hb-draft'); } catch (e) {}
+        say('PUBLISHED! THE LIVE SITE UPDATES IN ABOUT A MINUTE (HARD-REFRESH WITH CTRL+SHIFT+R).', true);
         HB.fx.ach(); HB.toast('PUBLISHED');
-      } catch (e) { msg.className = 'adm-msg'; msg.textContent = 'FAILED: ' + e.message; HB.fx.err(); }
-    }, 'big');
-    return h('div', { class: 'adm-form' },
-      h('h4', {}, 'YOUR EDITS ARE A DRAFT'),
-      h('p', { class: 'adm-note' }, 'ONLY YOU CAN SEE THEM, IN THIS BROWSER. PUBLISH TO MAKE THEM LIVE FOR EVERYONE.'),
-      draftButtons(),
-      h('h4', {}, 'PUBLISH'),
-      h('p', { class: 'adm-note' }, 'THE GITHUB TOKEN IS KEPT SAFE ON THE PUBLISH SERVICE, NEVER IN THIS BROWSER. YOU ONLY NEED THE PUBLISH PASSPHRASE.'),
-      h('label', { for: 'pub-pass' }, 'PUBLISH PASSPHRASE', pass),
-      msg,
-      h('div', { class: 'adm-btns' }, go, PUBLISH_URL ? null : btn('STOP USING THE SERVICE', () => { try { localStorage.removeItem('hb-pub-url'); } catch (e) {} render(); })));
+      } catch (e) { say('FAILED: ' + e.message); HB.fx.err(); }
+    }
+
+    callService({ action: 'status' }).then(r => {
+      if (!r.ok) { box.textContent = ''; box.append(...head(), h('p', { class: 'adm-msg' }, 'THE PUBLISH SERVICE SAID: ' + (r.error || r.status))); return; }
+      r.tokenSet ? paintReady() : paintSetup();
+    }).catch(() => {
+      box.textContent = ''; box.append(...head(), h('p', { class: 'adm-msg' }, 'COULD NOT REACH THE PUBLISH SERVICE. CHECK ITS ADDRESS AND YOUR INTERNET.'));
+    });
+    return box;
   }
 
   function tokenTab() {
@@ -419,7 +468,7 @@
       h('label', { for: 'pub-token' }, 'GITHUB TOKEN (PASTE IT HERE - THE BOX SHOULD STAY DARK)', token),
       msg, h('div', { class: 'adm-btns' }, go),
       h('h4', {}, 'BETTER: USE A PUBLISH SERVICE'),
-      h('p', { class: 'adm-note' }, 'IF YOU SET UP THE PUBLISH SERVICE (SEE worker/README.md IN THE REPO), PASTE ITS ADDRESS HERE. THEN NOBODY EVER NEEDS THE GITHUB TOKEN.'),
+      h('p', { class: 'adm-note' }, 'IF YOU SET UP THE PUBLISH SERVICE (SEE worker/README.md IN THE REPO), PASTE ITS ADDRESS HERE. YOU ADD THE TOKEN ONCE AND AFTER THAT IT IS JUST A PUBLISH BUTTON.'),
       (() => {
         const u = h('input', { type: 'text', placeholder: 'https://hollowblade-publish.yourname.workers.dev', autocomplete: 'off', spellcheck: 'false' });
         const m2 = h('p', { class: 'adm-msg' });
