@@ -121,6 +121,12 @@ export default {
     }
 
     const action = body.action || (body.files ? 'publish' : 'status');
+    if (action === 'visits_get') return reply({ ok: true, n: Number(await kv.get('visit:n')) || 0 });
+    if (action === 'visits_reset') {   // forget every counted visitor, so the next visit is number 1 again
+      let cursor, gone = 0;
+      do { const l = await kv.list({ prefix: 'visit:', cursor }); for (const k of l.keys) { await kv.delete(k.name); gone++; } cursor = l.list_complete ? undefined : l.cursor; } while (cursor);
+      return reply({ ok: true, n: 0, cleared: gone });
+    }
     if (String(action).startsWith('c_')) return communityMod(action, body, env, reply);
 
     /* ---- status: is a token saved yet? ---- */

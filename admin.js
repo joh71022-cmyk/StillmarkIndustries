@@ -396,11 +396,26 @@
       { k: 'fxVignette', label: 'EFFECT: DARK EDGES', type: 'check' }, { k: 'fxGrid', label: 'EFFECT: BACKGROUND GRID', type: 'check' },
       { k: 'fxCursor', label: 'EFFECT: GEAR CURSOR', type: 'check' }
     ];
-    return editor('SITE TEXT AND LOOK', fields, data.site, v => {
+    const form = editor('SITE TEXT AND LOOK', fields, data.site, v => {
       if (!v.title) return 'MENU TITLE IS REQUIRED.';
       if (v.announceUrl && !okUrl(v.announceUrl)) return 'ANNOUNCEMENT LINK MUST START WITH https://';
       Object.assign(data.site, v);
     });
+    return h('div', {}, form, visitsBox());
+  }
+
+  // the visitor counter lives on the publish service; this shows it and can start it over
+  function visitsBox() {
+    const note = h('p', { class: 'adm-note' }, pubUrl() ? 'LOADING VISITOR COUNT...' : 'SET UP THE PUBLISH SERVICE FIRST (PUBLISH TAB).');
+    const box = h('div', { class: 'adm-row' }, h('h4', {}, 'VISITOR COUNT'), note);
+    if (!pubUrl()) return box;
+    const load = async () => { const r = await callService({ action: 'visits_get' }); note.textContent = r.ok ? r.n + ' UNIQUE VISITORS SO FAR. REFRESHING DOES NOT COUNT.' : (r.error || 'COULD NOT LOAD THE COUNT.'); };
+    box.append(btn('RESET VISIT COUNT TO 0', async () => {
+      if (!confirm('Reset the visitor count to 0? Everyone counts again as a new visitor.')) return;
+      const r = await callService({ action: 'visits_reset' });
+      status.textContent = r.ok ? 'VISIT COUNT RESET.' : (r.error || 'COULD NOT RESET.'); load();
+    }));
+    load(); return box;
   }
 
   /* ---------- publish ---------- */
