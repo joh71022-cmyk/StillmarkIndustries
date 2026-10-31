@@ -9,37 +9,120 @@ window.SITE_DATA = {
     {
       "id": "hollowblade",
       "name": "HOLLOWBLADE",
-      "info": [
-        ["DEVELOPER", "HOLLOWBLADE INDUSTRIES"],
-        ["MAIN DEV", "THECELTICBHOYS"],
-        ["FIND IT AT", "DISCORD"]
-      ],
       "blurb": "MORE INFO COMING SOON. JOIN THE DISCORD FOR THE LATEST NEWS AND UPDATES.",
+      "tagline": "",
+      "status": "",
+      "icon": "",
+      "info": [
+        [
+          "DEVELOPER",
+          "HOLLOWBLADE INDUSTRIES"
+        ],
+        [
+          "MAIN DEV",
+          "THECELTICBHOYS"
+        ],
+        [
+          "FIND IT AT",
+          "DISCORD"
+        ]
+      ],
       "buttons": [
-        { "label": "JOIN DISCORD", "url": "https://discord.gg/QNGN2P7MNC" }
+        {
+          "label": "JOIN DISCORD",
+          "url": "https://discord.gg/QNGN2P7MNC"
+        }
       ]
     },
     {
       "id": "after-dark",
       "name": "THE HOLLOW AFTER DARK",
-      "info": [
-        ["DEVELOPER", "HOLLOWBLADE INDUSTRIES"],
-        ["SERIES", "THE HOLLOW"],
-        ["FIND IT AT", "ITCH.IO"]
-      ],
       "blurb": "MORE INFO COMING SOON. CHECK THE ITCH.IO PAGE FOR THE GAME.",
+      "tagline": "",
+      "status": "",
+      "icon": "",
+      "info": [
+        [
+          "DEVELOPER",
+          "HOLLOWBLADE INDUSTRIES"
+        ],
+        [
+          "SERIES",
+          "THE HOLLOW"
+        ],
+        [
+          "FIND IT AT",
+          "ITCH.IO"
+        ]
+      ],
       "buttons": [
-        { "label": "PLAY ON ITCH.IO", "url": "https://untimed.itch.io/the-hollow-after-dark" }
+        {
+          "label": "PLAY ON ITCH.IO",
+          "url": "https://untimed.itch.io/the-hollow-after-dark"
+        }
       ]
     }
   ],
   "devs": [
-    { "name": "UnknownService", "role": "CODER & DESIGNER", "url": "https://discord.com/users/947423539626127373", "pfp": { "cx": 68, "cy": 127, "r": 39 } },
-    { "name": "TheCelticBhoys", "role": "LEAD DEVELOPER", "main": true, "url": "https://discord.com/users/469916668651372556", "pfp": { "cx": 66, "cy": 769, "r": 34 } },
-    { "name": "JIPJIP", "role": "IDEAS PERSON", "url": "https://discord.com/users/865600698761609216", "pfp": { "cx": 67, "cy": 444, "r": 36 } }
+    {
+      "name": "UnknownService",
+      "role": "CODER & DESIGNER",
+      "bio": "",
+      "badge": "",
+      "url": "https://discord.com/users/947423539626127373",
+      "main": false,
+      "shape": "circle",
+      "avatar": "",
+      "links": [],
+      "pfp": {
+        "cx": 68,
+        "cy": 127,
+        "r": 39
+      }
+    },
+    {
+      "name": "TheCelticBhoys",
+      "role": "LEAD DEVELOPER",
+      "bio": "",
+      "badge": "",
+      "url": "https://discord.com/users/469916668651372556",
+      "main": true,
+      "shape": "circle",
+      "avatar": "",
+      "links": [],
+      "pfp": {
+        "cx": 66,
+        "cy": 769,
+        "r": 34
+      }
+    },
+    {
+      "name": "JIPJIP",
+      "role": "IDEAS PERSON",
+      "bio": "",
+      "badge": "",
+      "url": "https://discord.com/users/865600698761609216",
+      "main": false,
+      "shape": "circle",
+      "avatar": "",
+      "links": [],
+      "pfp": {
+        "cx": 67,
+        "cy": 444,
+        "r": 36
+      }
+    }
   ],
   "socials": [
-    { "label": "FOLLOW US ON TIKTOK", "handle": "@THEHOLLOWBLADEOFFICAL", "url": "https://www.tiktok.com/@thehollowbladeoffical" },
-    { "label": "JOIN THE DISCORD", "handle": "DISCORD.GG/QNGN2P7MNC", "url": "https://discord.gg/QNGN2P7MNC" }
+    {
+      "label": "FOLLOW US ON TIKTOK",
+      "handle": "@THEHOLLOWBLADEOFFICAL",
+      "url": "https://www.tiktok.com/@thehollowbladeoffical"
+    },
+    {
+      "label": "JOIN THE DISCORD",
+      "handle": "DISCORD.GG/QNGN2P7MNC",
+      "url": "https://discord.gg/QNGN2P7MNC"
+    }
   ]
 };
