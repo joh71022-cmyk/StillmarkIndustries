@@ -43,3 +43,15 @@ Friends who are mods only need the mod code. They never see the token. Change th
 - **What the service allows:** only `site-data.js` and pictures inside `uploads/`. It cannot touch anything else in the repo.
 - The service only accepts requests from your site (`ALLOWED_ORIGIN`) and from `localhost` for testing.
 - Prefer pasting the token in Cloudflare instead? Add it as a Secret called `GITHUB_TOKEN` and skip step 9.
+
+## Game downloads (file uploads)
+
+The page builder can store a game file for people to download, with no itch.io needed.
+The mod panel sends the file to `POST /upload`, and the service streams it into a GitHub Release called
+**downloads** in your repo. Visitors download it from GitHub's servers straight from your page.
+
+- Limit: **95 MB per file** (Cloudflare's free plan allows 100 MB per request). For bigger files paste a link instead.
+- Allowed types: zip, 7z, rar, exe, msi, apk, dmg, pkg, deb, appimage, tar, gz, pdf, txt, mp3, ogg, wav, mp4, webm, png, jpg, gif and a few more. Web page and script files are refused on purpose.
+- Uploading a file with the same name replaces the old one.
+- Needs the same token as publishing (**Contents: Read and write** covers releases too).
+- After changing `worker.js`, redeploy it (`wrangler deploy`, or paste the new code into the Cloudflare editor).

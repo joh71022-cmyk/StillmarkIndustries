@@ -137,7 +137,7 @@
       setTimeout(() => { b.dataset.sure = ''; b.textContent = 'DELETE'; }, 2500);
     });
   }
-  function list(arr, titleOf, subOf, onEdit, thumbOf) {
+  function list(arr, titleOf, subOf, onEdit, thumbOf, extra) {
     const ul = h('ul', { class: 'adm-list' });
     if (!arr.length) ul.append(h('li', { class: 'adm-empty' }, 'NOTHING HERE YET.'));
     arr.forEach((it, i) => {
@@ -145,7 +145,7 @@
       ul.append(h('li', {},
         th ? h('span', { class: 'adm-th', style: 'background-image:url("' + th.replace(/"/g, '%22') + '")' }) : null,
         h('div', { class: 'adm-t' }, h('b', {}, titleOf(it)), h('small', {}, subOf(it))),
-        h('div', { class: 'adm-btns' }, btn('EDIT', () => onEdit(it, i)), btn('UP', () => move(arr, i, -1)), btn('DOWN', () => move(arr, i, 1)), del(arr, i))));
+        h('div', { class: 'adm-btns' }, extra ? extra(it, i) : null, btn('EDIT', () => onEdit(it, i)), btn('UP', () => move(arr, i, -1)), btn('DOWN', () => move(arr, i, 1)), del(arr, i))));
     });
     return ul;
   }
@@ -238,6 +238,38 @@
     const b = parseLinks(v.buttons); if (b.err) return b.err;
     Object.assign(g, { name: v.name, info, blurb: v.blurb, tagline: v.tagline, status: v.status, icon: v.icon, buttons: b.list });
   }
+  /* ---------- page builder (loaded the first time it is needed) ---------- */
+  let touchT;
+  const touch = () => { dirty = true; clearTimeout(touchT); touchT = setTimeout(saveDraft, 400); };
+  function loadBuilder() {
+    if (window.HBBuilder) return Promise.resolve();
+    return new Promise((ok, no) => {
+      const s = document.createElement('script'); s.src = 'builder.js?v=' + (window.HB_VER || '17');
+      s.onload = ok; s.onerror = () => no(new Error('COULD NOT LOAD THE PAGE BUILDER')); document.head.appendChild(s);
+    });
+  }
+  // a game file goes to the publish service, which stores it as a GitHub Release file people can download
+  function uploadFile(file, onProgress) {
+    return new Promise((ok, no) => {
+      if (!pubUrl()) return no(new Error('SET UP THE PUBLISH SERVICE FIRST (PUBLISH TAB)'));
+      if (file.size > 95 * 1024 * 1024) return no(new Error('FILE IS OVER 95 MB. PASTE A LINK TO IT INSTEAD (GOOGLE DRIVE, MEGA...)'));
+      const name = file.name.replace(/\s+/g, '-').replace(/[^\w.\-]+/g, '-');
+      const x = new XMLHttpRequest();
+      x.open('POST', pubUrl().replace(/\/$/, '') + '/upload?name=' + encodeURIComponent(name));
+      x.setRequestHeader('X-Mod-Code', sessionCode);
+      x.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+      x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch (e) {} j.ok ? ok(j) : no(new Error(j.error || 'THE PUBLISH SERVICE SAID ' + x.status)); };
+      x.onerror = () => no(new Error('COULD NOT REACH THE PUBLISH SERVICE'));
+      x.send(file);
+    });
+  }
+  function openBuilder(g) {
+    loadBuilder().then(() => {
+      editing = () => window.HBBuilder.create(g, { h, btn, HB, shrink, uploadFile, touch, back: () => { editing = null; saveDraft(); render(); } });
+      tab = 'games'; render();
+    }).catch(e => { status.textContent = e.message; HB.fx.err(); });
+  }
+
   function gamesTab() {
     const wrap = h('div', {});
     wrap.append(addBar('+ ADD GAME', () => {
@@ -247,6 +279,7 @@
         let id = slug(v.name), n = 2; const base = id;
         while (data.games.some(x => x.id === id)) id = base + '-' + n++;
         g.id = id; data.games.push(g);
+        setTimeout(() => openBuilder(g), 0);
       });
       render();
     }), list(data.games, g => g.name, g => 'ID: ' + g.id + '  |  ' + g.buttons.length + ' BUTTON(S)', g => {
@@ -255,7 +288,7 @@
         info: g.info.map(p => p[0] + ': ' + p[1]).join('\n'), buttons: linksText(g.buttons)
       }, v => parseGame(v, g));
       render();
-    }, g => g.icon));
+    }, g => g.icon, g => btn('BUILD PAGE', () => openBuilder(g), 'build')));
     return wrap;
   }
 
@@ -415,7 +448,11 @@
       say('PUBLISHING...', true);
       try {
         const pub = JSON.parse(JSON.stringify(data)), files = [], pics = [];
-        pub.games.forEach(g => { if (isData(g.icon)) pics.push([g, 'icon', g.id + '-icon']); });
+        pub.games.forEach(g => {
+          if (isData(g.icon)) pics.push([g, 'icon', g.id + '-icon']);
+          if (isData(g.banner)) pics.push([g, 'banner', g.id + '-banner']);
+          (window.HBBlocks ? window.HBBlocks.collectImages(g.blocks, g.id) : []).forEach(x => { if (isData(x[0][x[1]])) pics.push(x); });
+        });
         pub.devs.forEach(d => { if (isData(d.avatar)) pics.push([d, 'avatar', slug(d.name) + '-pic']); });
         for (const [obj, key, base] of pics) {
           const m = /^data:image\/(png|jpeg|webp|gif);base64,(.+)$/.exec(obj[key]);
@@ -425,7 +462,14 @@
         }
         const stamp = Date.now().toString(36);
         files.push({ path: 'site-data.js', content: b64(new TextEncoder().encode(fileText(pub, stamp))) });
-        const r = await callService({ action: 'publish', files, message: 'Update site content via mod panel' });
+        const dataFile = files.pop();                       // site-data.js always goes last
+        for (let n = 0; n < files.length; n += 8) {
+          say('SAVING PICTURES ' + Math.min(n + 8, files.length) + ' OF ' + files.length + '...', true);
+          const part = await callService({ action: 'publish', files: files.slice(n, n + 8), message: 'Upload pictures via mod panel' });
+          if (part.needSetup || part.badToken) { paintSetup(part.error || 'THE SAVED TOKEN NO LONGER WORKS.'); return HB.fx.err(); }
+          if (!part.ok) throw new Error(part.error || 'THE PUBLISH SERVICE SAID ' + part.status);
+        }
+        const r = await callService({ action: 'publish', files: [dataFile], message: 'Update site content via mod panel' });
         if (r.needSetup || r.badToken) { paintSetup(r.error || 'THE SAVED TOKEN NO LONGER WORKS.'); return HB.fx.err(); }
         if (!r.ok) throw new Error(r.error || 'THE PUBLISH SERVICE SAID ' + r.status);
         data = pub; try { localStorage.removeItem('hb-draft'); } catch (e) {}
@@ -471,7 +515,11 @@
         const pub = JSON.parse(JSON.stringify(data));
         // upload each new picture as its own file, then point the data at it
         const pics = [];
-        pub.games.forEach(g => { if (isData(g.icon)) pics.push([g, 'icon', g.id + '-icon']); });
+        pub.games.forEach(g => {
+          if (isData(g.icon)) pics.push([g, 'icon', g.id + '-icon']);
+          if (isData(g.banner)) pics.push([g, 'banner', g.id + '-banner']);
+          (window.HBBlocks ? window.HBBlocks.collectImages(g.blocks, g.id) : []).forEach(x => { if (isData(x[0][x[1]])) pics.push(x); });
+        });
         pub.devs.forEach(d => { if (isData(d.avatar)) pics.push([d, 'avatar', slug(d.name) + '-pic']); });
         for (const [obj, key, base] of pics) {
           const m = /^data:image\/(png|jpeg|webp|gif);base64,(.+)$/.exec(obj[key]);

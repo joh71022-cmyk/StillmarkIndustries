@@ -14,6 +14,7 @@
   };
   const cssUrl = u => 'url("' + u.replace(/["\\\n]/g, c => encodeURIComponent(c)) + '")';
 
+  const ACCENTS = { white: '#ffffff', cyan: '#00e5ff', magenta: '#ff2bd6', lime: '#b6ff3c', amber: '#ffb000', red: '#ff3b3b' };
   const clean = d => ({
     site: {
       title: str((d.site || {}).title) || 'HOLLOWBLADE INDUSTRIES',
@@ -22,6 +23,8 @@
     },
     games: (d.games || []).map(g => ({
       id: str(g.id) || 'game', name: str(g.name), blurb: str(g.blurb), tagline: str(g.tagline), status: str(g.status), icon: safeImg(g.icon),
+      banner: safeImg(g.banner), accent: ACCENTS[g.accent] ? g.accent : '',
+      blocks: window.HBBlocks ? window.HBBlocks.cleanBlocks(g.blocks) : [],
       info: (g.info || []).map(p => [str(p[0]), str(p[1])]),
       buttons: (g.buttons || []).map(b => ({ label: str(b.label), url: safeUrl(b.url) }))
     })),
@@ -122,6 +125,14 @@
       const t = el('h1', 'gtitle rise', g.name); t.style.setProperty('--r', 1);
       host.append(k, t);
       if (g.status) { const st = el('p', 'status rise', g.status); st.style.setProperty('--r', 1); host.appendChild(st); }
+      if (g.accent) host.style.setProperty('--accent', ACCENTS[g.accent]);
+      if (g.banner) { const bn = el('div', 'gbanner rise'); bn.style.setProperty('--r', 0); bn.style.backgroundImage = cssUrl(g.banner); bn.setAttribute('role', 'img'); bn.setAttribute('aria-label', g.name + ' banner'); host.prepend(bn); }
+      if (g.blocks.length && window.HBBlocks) {            // a page built in the mod panel
+        const pg = window.HBBlocks.render(g.blocks, { socials: S.socials });
+        pg.classList.add('rise'); pg.style.setProperty('--r', 2);
+        host.append(pg);
+        document.body.classList.add('built');
+      } else {
       const info = el('section', 'info rise'); info.style.setProperty('--r', 2); info.setAttribute('aria-label', 'Game info');
       if (g.info.length) {
         const dl = el('dl');
@@ -136,6 +147,7 @@
         a.innerHTML = CTA_SVG; a.appendChild(el('span', '', b.label)); row.appendChild(a);
       });
       host.append(info, row);
+      }
     }
   }
 
