@@ -99,3 +99,7 @@ Needs a Cloudflare D1 database bound as `DB`. Without it the rest of the service
 4. `wrangler deploy` (worker.js imports community.js, so keep both files together).
 
 Visitors have no accounts. People are told apart only by a private fingerprint (a hash of their address plus the mod code), used for rate limits, one like per person, and bans. Moderate from the mod panel's COMMUNITY tab. Add a COMMENTS, FORUM or LATEST THREADS block in the page builder; the forum itself is community.html.
+
+### Member accounts
+Name and password only (no email, so nothing third-party). Passwords are stored as salted PBKDF2 hashes, login sessions last 30 days, and a forgotten password is reset by a moderator (mod panel > COMMUNITY > MEMBERS > NEW PASSWORD). A registered name cannot be used by guests. Members can add a picture, an about-me, a contact (only moderators see it) and join the early access list; moderators can filter that list and download it as a CSV.
+For a database made before accounts existed, run `migrate-accounts.sql` once, then `schema.sql` again (see the file's comments). accounts.js must be deployed next to worker.js and community.js.
