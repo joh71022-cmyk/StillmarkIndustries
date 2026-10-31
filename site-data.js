@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvwbhwe3
+// stamp: mvwbil08
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -116,7 +116,7 @@ window.SITE_DATA = {
       "accentHex": "",
       "width": "normal",
       "bg": "default",
-      "hideGear": false,
+      "hideGear": true,
       "showTitle": false,
       "showIcon": false,
       "showLabel": false,
