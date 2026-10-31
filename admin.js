@@ -314,7 +314,7 @@
 
   function publishTab() {
     const repo = h('input', { type: 'text', value: DEFAULT_REPO, autocomplete: 'off', spellcheck: 'false', id: 'pub-repo' });
-    const token = h('input', { type: 'password', autocomplete: 'off', placeholder: 'github_pat_... or ghp_...', id: 'pub-token' });
+    const token = h('input', { type: 'password', name: 'gh-token-' + Math.random().toString(36).slice(2), autocomplete: 'new-password', 'data-lpignore': 'true', 'data-1p-ignore': 'true', placeholder: 'github_pat_... or ghp_...', id: 'pub-token' });
     const msg = h('p', { class: 'adm-msg' });
     const go = btn('PUBLISH TO GITHUB', async () => {
       const r = repo.value.trim(), t = token.value.trim();
@@ -366,7 +366,7 @@
       h('h4', {}, 'PUBLISH'),
       h('p', { class: 'adm-note' }, 'USE A GITHUB TOKEN THAT CAN EDIT THIS REPO. IT IS ONLY USED RIGHT NOW TO TALK TO GITHUB AND IS NEVER SAVED. UPLOADED PICTURES ARE ADDED TO AN uploads FOLDER IN THE REPO.'),
       h('label', { for: 'pub-repo' }, 'REPO', repo),
-      h('label', { for: 'pub-token' }, 'GITHUB TOKEN', token),
+      h('label', { for: 'pub-token' }, 'GITHUB TOKEN (PASTE IT HERE - THE BOX SHOULD STAY DARK)', token),
       msg, h('div', { class: 'adm-btns' }, go));
   }
 })();
