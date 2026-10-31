@@ -38,6 +38,7 @@
 
   /* ---------- sound engine (all synthesized in the browser, no audio files) ---------- */
   const Snd = (() => {
+    const SK = 'hb-mus';
     let ctx, master, sfxBus, musicBus, nbuf, seq = null, lastHover = 0;
     let sfxOn = store.get('hb-snd', true), musicOn = store.get('hb-music', true);
     const vol = (k, d) => { try { const v = parseFloat(localStorage.getItem(k)); return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : d; } catch (e) { return d; } };
@@ -106,27 +107,50 @@
       delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(musicBus);
       const send = ctx.createGain(); send.gain.value = .55; send.connect(delay);
       const padBus = ctx.createGain(); padBus.connect(musicBus);
+      // came from another page a moment ago? carry on from where the song was, with a short fade
+      let from = 0, ahead = .15, fade = 2.5, resumed = false;
+      try {
+        const m = JSON.parse(sessionStorage.getItem(SK) || 'null');
+        if (m && Date.now() - m.wall < 6000) {
+          const pos = (((m.pos + (Date.now() - m.wall) / 1000 / STEP) % 256) + 256) % 256, whole = Math.ceil(pos);
+          from = whole % 256; ahead = Math.max(.05, (whole - pos) * STEP); fade = .5; resumed = true;
+        }
+      } catch (e) {}
       musicBus.gain.cancelScheduledValues(t0);
       musicBus.gain.setValueAtTime(musicBus.gain.value, t0);
-      musicBus.gain.linearRampToValueAtTime(vols.music, t0 + 2.5);   // fade in gently
-      seq = { step: 0, next: t0 + .15, delay, send, padBus, timer: setInterval(schedule, 40) };
+      musicBus.gain.linearRampToValueAtTime(vols.music, t0 + fade);
+      seq = { step: from, next: t0 + ahead, delay, send, padBus, timer: setInterval(schedule, 40), saved: 0 };
+      if (resumed && (from & 15) !== 0) {      // landed mid-bar: bring the pad in straight away
+        const bar = (from >> 4) & 15;
+        pad(ROOTS[bar & 3], CHORDS[bar & 3], t0 + .05, STEP * (16 - (from & 15)));
+      }
     }
     function schedule() {
       if (!seq || !running()) return;
+      const wall = Date.now();
+      if (wall - seq.saved > 400) {
+        seq.saved = wall;
+        try { sessionStorage.setItem(SK, JSON.stringify({ pos: seq.step - (seq.next - ctx.currentTime) / STEP, wall })); } catch (e) {}
+      }
       while (seq.next < ctx.currentTime + .3) {
         play(seq.step, seq.next);
         seq.next += STEP; seq.step = (seq.step + 1) % 256;
       }
     }
+    function pad(root, chord, t, dur) {                       // one long soft chord
+      [...chord, 12].forEach((n, k) => {
+        const f = mtof(24 + root + n) * (k % 2 ? 1.004 : .996);
+        voice(seq.padBus, 'sawtooth', f, f, t, dur, .028, 650);
+      });
+    }
+    const LEAD = [[7, 10, 12, 10], [5, 7, 10, 7], [7, 5, 3, 5], [10, 7, 5, 3]];   // A minor pentatonic, A4 and up
     function play(s, t) {
       const bar = (s >> 4) & 15, i = s & 15, root = ROOTS[bar & 3], chord = CHORDS[bar & 3];
-      const full = bar >= 2;                                  // two bars of just pads and arp, then everything
-      const lift = bar >= 8;                                  // second half goes up an octave
-      if (i === 0) {                                          // pad: one long soft chord per bar
-        [...chord, 12].forEach((n, k) => {
-          voice(seq.padBus, 'sawtooth', mtof(24 + root + n) * (k % 2 ? 1.004 : .996), mtof(24 + root + n) * (k % 2 ? 1.004 : .996), t, STEP * 16, .028, 650);
-        });
-      }
+      const drop = bar === 7;                                 // a bar with no drums, then the second half hits
+      const full = bar >= 2 && !drop;                         // two bars of just pads and arp first
+      const lift = bar >= 8;                                  // second half goes up an octave and adds a lead
+      if (i === 0) pad(root, chord, t, STEP * 16);
+      if (drop && i === 0) hit(musicBus, t, STEP * 16, .07, 'bandpass', 500, 6000, 1);   // riser into the drop
       if (full) {
         if (i % 4 === 0) {                                    // kick, and duck the pad so it pumps
           voice(musicBus, 'sine', 150, 42, t, .24, .5);
@@ -136,11 +160,18 @@
         if (i === 4 || i === 12) { hit(musicBus, t, .15, .2, 'bandpass', 1500, 1100, .7); hit(musicBus, t + .011, .1, .12, 'bandpass', 2200, 1800, .7); }
         if (i % 2 === 0) hit(musicBus, t, .045, i % 4 === 2 ? .05 : .022, 'highpass', 7500, 7500, .5);
         if (bar % 4 === 3 && i >= 12) hit(musicBus, t, .04, .03, 'highpass', 8000, 8000, .5);
+        if (bar === 15 && i >= 12) hit(musicBus, t, .07, .1, 'bandpass', 1800, 1500, .7);   // fill before the loop restarts
         if (i in BASS) {
           const f = mtof(root + BASS[i]);
           voice(musicBus, 'sawtooth', f, f, t, STEP * 1.7, .17, 520);
           voice(musicBus, 'sine', f, f, t, STEP * 1.7, .26);
         }
+      }
+      if (lift && full && i % 4 === 0) {                      // lead melody over the second half
+        const f = mtof(36 + LEAD[bar & 3][i >> 2]);
+        const g = ctx.createGain(); g.gain.value = 1; g.connect(musicBus); g.connect(seq.send);
+        voice(g, 'sawtooth', f, f, t, STEP * 3.2, .045, 3200);
+        voice(g, 'sine', f, f, t, STEP * 3.2, .04);
       }
       if (i % 2 === 0 || (full && i % 4 === 3)) {             // arpeggio
         const n = chord[ARP[i] % 3] + (ARP[i] > 2 ? 12 : 0);
@@ -152,6 +183,7 @@
     function stopMusic() {
       if (!seq) return;
       clearInterval(seq.timer);
+      try { sessionStorage.removeItem(SK); } catch (e) {}
       const t = ctx.currentTime, s = seq; seq = null;
       musicBus.gain.cancelScheduledValues(t);
       musicBus.gain.setValueAtTime(musicBus.gain.value, t);
@@ -189,6 +221,9 @@
       init, fx,
       get sfx() { return sfxOn; }, get music() { return musicOn; },
       volume: kind => vols[kind], setVolume,
+      get blocked() { return !!ctx && ctx.state === 'suspended' && !document.hidden; },
+      fadeOut() { if (live() && seq) { const t = ctx.currentTime; musicBus.gain.cancelScheduledValues(t); musicBus.gain.setValueAtTime(musicBus.gain.value, t); musicBus.gain.linearRampToValueAtTime(0, t + .45); } },
+      fadeIn() { if (live() && seq) { const t = ctx.currentTime; musicBus.gain.cancelScheduledValues(t); musicBus.gain.setValueAtTime(musicBus.gain.value, t); musicBus.gain.linearRampToValueAtTime(vols.music, t + .6); } },
       toggleSfx() { sfxOn = !sfxOn; store.set('hb-snd', sfxOn); },
       toggleMusic() { musicOn = !musicOn; store.set('hb-music', musicOn); musicOn ? startMusic() : stopMusic(); }
     };
@@ -221,6 +256,13 @@
     r.addEventListener('input', () => Snd.setVolume(r.dataset.k, r.value / 100));
     r.addEventListener('change', () => { if (r.dataset.k === 'sfx') sfx('click'); });
   });
+  const hint = document.createElement('div');
+  hint.className = 'musichint'; hint.textContent = 'CLICK ANYWHERE FOR MUSIC'; hint.hidden = true;
+  document.body.appendChild(hint);
+  ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { hint.hidden = true; }, true));
+  Snd.init();                                                  // starts by itself where the browser allows it
+  setTimeout(() => { if (Snd.music && Snd.blocked && !$('#boot')) hint.hidden = false; }, 700);
+
   volBtn.addEventListener('click', e => {
     e.stopPropagation(); pop.hidden = !pop.hidden; volBtn.setAttribute('aria-expanded', String(!pop.hidden));
   });
@@ -347,10 +389,10 @@
   let leaving = false;
   const reveal = () => { requestAnimationFrame(() => requestAnimationFrame(() => wipe.classList.remove('on'))); setTimeout(() => wipe.classList.remove('on'), 500); };
   reveal();
-  addEventListener('pageshow', e => { if (e.persisted) { leaving = false; reveal(); } });
+  addEventListener('pageshow', e => { if (e.persisted) { leaving = false; Snd.fadeIn(); reveal(); } });
   function go(url) {
     if (leaving) return; leaving = true;
-    sfx('whoosh');
+    sfx('whoosh'); Snd.fadeOut();
     wipe.classList.add('on');
     setTimeout(() => { location.href = url; }, reduce ? 0 : 620);
   }
