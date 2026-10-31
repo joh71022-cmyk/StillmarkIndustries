@@ -308,8 +308,7 @@
   })();
   const sfx = (name, ...a) => Snd.fx[name](...a);
   // browsers only allow audio after a gesture, so unlock on the very first one
-  addEventListener('pointerdown', Snd.init, true);
-  addEventListener('keydown', Snd.init, true);
+  ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, Snd.init, true));
 
   const hud = { sfx: $('[data-t="sfx"]'), music: $('[data-t="music"]') };
   const paintHud = () => {

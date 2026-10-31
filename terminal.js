@@ -60,6 +60,12 @@
   if (hudBar) hudBar.insertBefore(acctBox, hudBar.firstChild);
   withCommunity().catch(() => {});
 
+  // on a touch screen there is no ENTER key to press
+  const hintEl = $('.hint');
+  if (hintEl && matchMedia('(pointer:coarse)').matches && !matchMedia('(any-pointer:fine)').matches && hintEl.firstChild && hintEl.firstChild.nodeType === 3) {
+    hintEl.firstChild.textContent = 'TAP ';
+  }
+
   /* ---------- visit counter ---------- */
   // counted once per real visitor (address + browser) by the service, so refreshing never adds a visit
   let visits = 0;
