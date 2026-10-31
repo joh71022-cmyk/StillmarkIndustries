@@ -105,22 +105,36 @@
   const changed = () => { dirty = true; saveDraft(); render(); };
 
   /* ---------- pictures: pick a file, shrink it, keep it as a small data URL ---------- */
-  function shrink(file, max = 320) {
-    return new Promise((resolve, reject) => {
-      if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) return reject(new Error('USE A PNG, JPG, WEBP OR GIF'));
-      if (file.size > 12e6) return reject(new Error('FILE IS OVER 12 MB'));
-      const img = new Image(), u = URL.createObjectURL(file);
-      img.onload = () => {
-        const k = Math.min(1, max / Math.max(img.width, img.height));
+  // any picture the browser can open works (not just png/jpg), big photos are fine, and the result is kept small
+  async function shrink(file, max = 320) {
+    if (file.size > 60e6) throw new Error('FILE IS OVER 60 MB');
+    let src, w, h0, url;
+    try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); w = src.width; h0 = src.height; }
+    catch (e) {
+      url = URL.createObjectURL(file);
+      src = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('THIS BROWSER CANNOT OPEN THAT PICTURE (HEIC?). SAVE IT AS PNG OR JPG FIRST.')); i.src = url; });
+      w = src.naturalWidth || src.width; h0 = src.naturalHeight || src.height;
+    }
+    try {
+      if (!w || !h0) throw new Error('THAT PICTURE HAS NO SIZE');
+      let k = Math.min(1, max / Math.max(w, h0)), out = '';
+      for (let tries = 0; tries < 8; tries++) {
         const c = document.createElement('canvas');
-        c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        URL.revokeObjectURL(u);
-        resolve(c.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', .9));
-      };
-      img.onerror = () => { URL.revokeObjectURL(u); reject(new Error('COULD NOT READ THAT IMAGE')); };
-      img.src = u;
-    });
+        c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h0 * k));
+        const x = c.getContext('2d'); x.drawImage(src, 0, 0, c.width, c.height);
+        const png = file.type === 'image/png' || file.type === 'image/webp' || file.type === 'image/avif' || file.type === 'image/svg+xml';
+        out = png ? c.toDataURL('image/png') : '';
+        if (!out || out.length > 700000) {           // too heavy as PNG: keep transparency with webp if possible, else jpeg on white
+          const wp = c.toDataURL('image/webp', .85);
+          if (png && wp.startsWith('data:image/webp')) out = wp;
+          else { x.globalCompositeOperation = 'destroy-over'; x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', .88); }
+        }
+        if (out.length <= 700000 || Math.max(c.width, c.height) < 160) break;
+        k *= .8;
+      }
+      if (!out.startsWith('data:image/')) throw new Error('COULD NOT PREPARE THAT PICTURE');
+      return out;
+    } finally { if (url) URL.revokeObjectURL(url); if (src && src.close) src.close(); }
   }
 
   /* ---------- generic pieces ---------- */
@@ -168,7 +182,7 @@
           thumb.classList.toggle('empty', !val);
           note.textContent = val ? (isData(val) ? 'NEW PICTURE READY (SAVED WHEN YOU HIT SAVE)' : 'CURRENT PICTURE') : (f.fallback && !cleared ? f.fallback : 'NO PICTURE');
         };
-        const file = h('input', { id, type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
+        const file = h('input', { id, type: 'file', accept: 'image/*' });
         file.addEventListener('change', async () => {
           const fl = file.files[0]; if (!fl) return;
           try { if (fl.type === 'image/gif') note.textContent = 'UPLOADING THE GIF...'; val = await pickImage(fl, f.max || 320, p => { note.textContent = 'UPLOADING THE GIF... ' + Math.round(p * 100) + '%'; }); cleared = false; paint(); HB.fx.buy(); }

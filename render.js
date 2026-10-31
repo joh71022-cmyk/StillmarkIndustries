@@ -22,7 +22,7 @@
   // the look options a game page or a custom page can have
   const pageOpts = g => ({
     banner: safeImg(g.banner), accent: ACCENTS[g.accent] ? g.accent : '', accentHex: /^#[0-9a-f]{6}$/i.test(str(g.accentHex)) ? g.accentHex : '',
-    width: WIDTHS[g.width] ? g.width : 'normal', bg: BG.includes(g.bg) ? g.bg : 'default', hideGear: !!g.hideGear, showTitle: g.showTitle !== false,
+    width: WIDTHS[g.width] ? g.width : 'normal', bg: BG.includes(g.bg) ? g.bg : 'default', hideGear: !!g.hideGear, showTitle: g.showTitle !== false, showIcon: g.showIcon !== false, showLabel: g.showLabel !== false, showStatus: g.showStatus !== false,
     subtitle: str(g.subtitle).slice(0, 200), blocks: blocksOf(g.blocks)
   });
 
@@ -168,13 +168,13 @@
         host.appendChild(gw);
       }
       if (g.banner) { const bn = el('div', 'gbanner rise'); bn.style.setProperty('--r', 0); bn.style.backgroundImage = cssUrl(g.banner); bn.setAttribute('role', 'img'); bn.setAttribute('aria-label', g.name + ' banner'); host.appendChild(bn); }
-      if (kind === 'game' && g.icon) { const ic = el('div', 'gicon rise'); ic.style.setProperty('--r', 0); ic.style.backgroundImage = cssUrl(g.icon); ic.setAttribute('role', 'img'); ic.setAttribute('aria-label', g.name + ' icon'); host.appendChild(ic); }
+      if (kind === 'game' && g.icon && g.showIcon) { const ic = el('div', 'gicon rise'); ic.style.setProperty('--r', 0); ic.style.backgroundImage = cssUrl(g.icon); ic.setAttribute('role', 'img'); ic.setAttribute('aria-label', g.name + ' icon'); host.appendChild(ic); }
       if (g.showTitle) {
-        const k = el('p', 'kicker rise', kind === 'page' ? '// PAGE' : '// GAME FILE ' + String(idx + 1).padStart(2, '0')); k.style.setProperty('--r', 0);
         const t = el('h1', 'gtitle rise', g.name); t.style.setProperty('--r', 1);
-        host.append(k, t);
+        if (g.showLabel) { const k = el('p', 'kicker rise', kind === 'page' ? '// PAGE' : '// GAME FILE ' + String(idx + 1).padStart(2, '0')); k.style.setProperty('--r', 0); host.append(k); }
+        host.append(t);
         if (g.subtitle) { const sb = el('p', 'psub rise', g.subtitle); sb.style.setProperty('--r', 1); host.appendChild(sb); }
-        if (kind === 'game' && g.status) { const st = el('p', 'status rise', g.status); st.style.setProperty('--r', 1); host.appendChild(st); }
+        if (kind === 'game' && g.status && g.showStatus) { const st = el('p', 'status rise', g.status); st.style.setProperty('--r', 1); host.appendChild(st); }
       }
       if (g.blocks.length && window.HBBlocks) {            // a page built in the mod panel
         host.style.setProperty('--pw', WIDTHS[g.width]);

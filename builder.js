@@ -51,7 +51,7 @@
         prev.style.backgroundImage = v ? 'url("' + v.replace(/"/g, '%22') + '")' : ''; prev.classList.toggle('empty', !v);
         note.textContent = v ? (/^data:/.test(v) ? 'NEW PICTURE (UPLOADED WHEN YOU PUBLISH)' : /\.gif($|\?)/i.test(v) ? 'ANIMATED GIF SET' : 'PICTURE SET') : 'NO PICTURE. PNG, JPG, WEBP, OR A GIF (KEEPS ITS ANIMATION).';
       };
-      const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
+      const file = h('input', { type: 'file', accept: 'image/*' });
       file.addEventListener('change', async () => {
         if (!file.files[0]) return;
         const isGif = file.files[0].type === 'image/gif'; if (isGif) note.textContent = 'UPLOADING THE GIF...';
@@ -73,7 +73,7 @@
           i > 0 ? h('button', { type: 'button', class: 'l', 'aria-label': 'Move left', onclick: () => { [b[k][i - 1], b[k][i]] = [b[k][i], b[k][i - 1]]; paint(); tick(); } }, '<') : null)));
         note.textContent = b[k].length ? b[k].length + ' PICTURE(S)' : 'NO PICTURES YET';
       };
-      const file = h('input', { type: 'file', multiple: 'true', accept: 'image/png,image/jpeg,image/webp,image/gif' });
+      const file = h('input', { type: 'file', multiple: 'true', accept: 'image/*' });
       file.addEventListener('change', async () => {
         for (const f of [...file.files]) { try { if (f.type === 'image/gif') note.textContent = 'UPLOADING ' + f.name + '...'; b[k].push(await kit.pickImage(f, max || 1400, p => { note.textContent = 'UPLOADING ' + f.name + '... ' + Math.round(p * 100) + '%'; })); } catch (e) { note.textContent = 'ERROR: ' + e.message; HB.fx.err(); } }
         file.value = ''; HB.fx.buy(); paint(); tick();
@@ -205,19 +205,22 @@
     accent.value = g.accent || ''; accent.addEventListener('change', () => { g.accent = accent.value; tick(); });
     const simple = (label, key, type, options, hint) => {
       const id = 'bp-' + key; let ctl;
-      if (type === 'check') { ctl = h('input', { id, type: 'checkbox' }); ctl.checked = key === 'showTitle' ? g[key] !== false : !!g[key]; ctl.addEventListener('change', () => { g[key] = ctl.checked; tick(); }); return h('div', { class: 'bld-field' }, h('label', { for: id, class: 'chk' }, ctl, label)); }
+      if (type === 'check') { ctl = h('input', { id, type: 'checkbox' }); ctl.checked = ['showTitle', 'showIcon', 'showLabel', 'showStatus'].includes(key) ? g[key] !== false : !!g[key]; ctl.addEventListener('change', () => { g[key] = ctl.checked; tick(); }); return h('div', { class: 'bld-field' }, h('label', { for: id, class: 'chk' }, ctl, label)); }
       if (type === 'select') { ctl = h('select', { id }, options.map(o => h('option', { value: o }, o.toUpperCase()))); ctl.value = g[key] || options[0]; ctl.addEventListener('change', () => { g[key] = ctl.value; tick(); }); }
       else { ctl = h('input', { id, type: 'text', autocomplete: 'off', placeholder: hint || '' }); ctl.value = g[key] || ''; ctl.addEventListener('input', () => { g[key] = ctl.value.trim(); tick(); }); }
       return h('div', { class: 'bld-field' }, h('label', { for: id }, label), ctl);
     };
-    const look = h('details', { class: 'bld-look' }, h('summary', {}, 'PAGE LOOK: BANNER, COLOURS, WIDTH, BACKGROUND'),
+    const look = h('details', { class: 'bld-look' }, h('summary', {}, 'PAGE LOOK: HEADER, BANNER, COLOURS, WIDTH, BACKGROUND'),
       h('div', { class: 'adm-img' }, h('span', { class: 'adm-lbl' }, 'BANNER PICTURE (WIDE, ACROSS THE TOP)'), imageControl(() => g.banner || '', v => { g.banner = v; }, 1800)),
       h('div', { class: 'bld-field' }, h('label', { for: 'bld-acc' }, 'ACCENT COLOUR (PRESET)'), accent),
       simple('OR YOUR OWN ACCENT COLOUR (HEX, LIKE #ff8800)', 'accentHex', 'text', null, '#ff8800'),
       simple('PAGE WIDTH', 'width', 'select', ['normal', 'narrow', 'wide']),
       simple('BACKGROUND', 'bg', 'select', ['default', 'plain', 'grid', 'dots', 'stars']),
       simple('SUBTITLE UNDER THE TITLE (OPTIONAL)', 'subtitle', 'text', null, 'A SHORT LINE'),
+      simple('SHOW THE ICON AT THE TOP (GAMES)', 'showIcon', 'check'),
+      simple('SHOW THE SMALL "GAME FILE" LABEL', 'showLabel', 'check'),
       simple('SHOW THE PAGE TITLE', 'showTitle', 'check'),
+      simple('SHOW THE STATUS BOX (LIKE IN DEVELOPMENT)', 'showStatus', 'check'),
       simple('HIDE THE SPINNING GEAR BEHIND THE TITLE', 'hideGear', 'check'));
 
     const prevBtn = btn('SHOW PREVIEW', () => { previewOn = !previewOn; preview.hidden = !previewOn; prevBtn.textContent = previewOn ? 'HIDE PREVIEW' : 'SHOW PREVIEW'; refreshPreview(); });
