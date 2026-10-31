@@ -1,10 +1,10 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvwaxuvk
+// stamp: mvwaypdy
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
     "soon": "MORE GAMES SOON",
-    "ticker": "///New Dev///",
+    "ticker": "",
     "announce": "///Accounts are out crate one now!///",
     "announceUrl": "",
     "announceTone": "info",
