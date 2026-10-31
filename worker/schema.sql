@@ -57,6 +57,9 @@ CREATE TABLE IF NOT EXISTS users (
   contact TEXT NOT NULL DEFAULT '',         -- optional, only moderators see it (for early access)
   early INTEGER NOT NULL DEFAULT 0,         -- early access: 0 none, 1 approved, 2 waiting for a moderator, 3 declined
   early_reason TEXT NOT NULL DEFAULT '',    -- why they want it
+  early_note TEXT NOT NULL DEFAULT '',      -- a moderator's message when declining
+  role TEXT NOT NULL DEFAULT '',            -- a label shown on their posts, like DEV or OWNER (only moderators can set it)
+  dev_name TEXT NOT NULL DEFAULT '',        -- the developer from the dev list this account is linked to
   avatar TEXT NOT NULL DEFAULT '',          -- a small picture kept as a data address
   av INTEGER NOT NULL DEFAULT 0,
   banned INTEGER NOT NULL DEFAULT 0,

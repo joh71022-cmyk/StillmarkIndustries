@@ -51,7 +51,9 @@
     const c = el('article', 'cm-post' + (p.staff ? ' staff' : ''));
     const head = el('header');
     if (p.av) { const im = el('img', 'cm-av'); im.alt = ''; im.width = 28; im.height = 28; im.loading = 'lazy'; im.src = API + '/c/avatar?u=' + p.uid + '&v=' + (me && me.id === p.uid ? avVer : 0); head.append(im); }
-    head.append(el('b', 'cm-name', p.name)); if (p.staff) head.append(el('u', 'cm-badge', 'STAFF')); else if (p.member) head.append(el('u', 'cm-badge dim', 'MEMBER'));
+    head.append(el('b', 'cm-name', p.name)); if (p.staff) head.append(el('u', 'cm-badge', 'STAFF'));
+    else if (p.role || p.devName) { head.append(el('u', 'cm-badge role', p.role || 'DEV')); if (p.devName) head.append(el('small', 'cm-devname', p.devName)); }
+    else if (p.member) head.append(el('u', 'cm-badge dim', 'MEMBER'));
     if (p.rating) head.append(stars(p.rating)); head.append(el('small', '', ago(p.created))); c.append(head);
     c.append(el('p', 'cm-body', p.body));
     const foot = el('footer'), type = kind === 'thread' ? 'thread' : 'post';
@@ -141,7 +143,7 @@
           const r = await call(mode === 'new' ? '/c/register' : '/c/login', mode === 'new' ? { name: name.value, password: pw.value, contact: contact.value, early: early.checked, earlyReason: reason.value } : { name: name.value, password: pw.value });
           go.disabled = false;
           if (!r.ok) { note.textContent = r.error || 'SOMETHING WENT WRONG.'; note.classList.add('err'); return; }
-          setSession(r.token, r.me); close();
+          verified = true; setSession(r.token, r.me); close(); notice(r.me);
         });
         body.append(tabs, f); name.focus();
       };
@@ -171,12 +173,12 @@
       row.lastChild.append(file, rm); paintAv();
       const bio = el('textarea'); bio.rows = 3; bio.maxLength = 200; bio.value = me.bio || ''; bio.setAttribute('aria-label', 'About me');
       const contact = input('text', 'OPTIONAL, LIKE A DISCORD NAME', 60); contact.value = me.contact || '';
-      const st = me.early || 'none', decided = st === 'approved' || st === 'declined';
+      const st = me.early || 'none', decided = st === 'approved';
       const early = input('checkbox'); early.checked = st === 'approved' || st === 'pending'; early.disabled = decided;
       const el1 = el('label', 'cm-chk'); el1.append(early, document.createTextNode(' I WANT TO BE AN EARLY ACCESS TESTER'));
       const reason = el('textarea'); reason.rows = 3; reason.maxLength = 300; reason.value = me.earlyReason || ''; reason.placeholder = 'WHY DO YOU WANT EARLY ACCESS?'; reason.hidden = !early.checked || decided; reason.setAttribute('aria-label', 'Why you want early access');
       early.addEventListener('change', () => { reason.hidden = !early.checked; });
-      const estat = el('p', 'cm-note', { none: '', pending: 'YOUR EARLY ACCESS REQUEST IS WAITING FOR THE TEAM TO LOOK AT IT.', approved: 'YOU ARE IN EARLY ACCESS. THE TEAM MAY CONTACT YOU.', declined: 'YOUR EARLY ACCESS REQUEST WAS NOT ACCEPTED THIS TIME.' }[st]);
+      const estat = el('p', 'cm-note', { none: '', pending: 'YOUR EARLY ACCESS REQUEST IS WAITING FOR THE TEAM TO LOOK AT IT.', approved: 'YOU ARE IN EARLY ACCESS. THE TEAM MAY CONTACT YOU.', declined: 'YOUR EARLY ACCESS REQUEST WAS DENIED' + (me.earlyNote ? ': ' + me.earlyNote : '.') + ' YOU CAN TRY AGAIN: TICK THE BOX AND GIVE A NEW REASON.' }[st]);
       const save = el('button', 'cm-go', 'SAVE'); save.type = 'submit';
       f.append(el('p', 'cm-note', 'LOGGED IN AS ' + me.name), row, field('ABOUT ME', bio), field('HOW THE TEAM CAN REACH YOU (ONLY THE TEAM SEES THIS)', contact), el1, reason, estat, save, note);
       f.addEventListener('submit', async e => {
@@ -201,14 +203,28 @@
     });
   }
 
+  // tell people what the team decided, once, the next time they open the site
+  function notice(m) {
+    const key = 'hb-seen-' + m.id, now = m.early + '|' + (m.earlyNote || ''), seen = store.get(key);
+    if (seen === now) return;
+    if (m.early !== 'approved' && m.early !== 'declined') { if (seen) store.set(key, ''); return; }
+    store.set(key, now);
+    modal(m.early === 'approved' ? 'YOU ARE IN!' : 'EARLY ACCESS DENIED', (box, close) => {
+      box.append(el('p', 'cm-note', m.early === 'approved' ? 'THE TEAM ACCEPTED YOUR EARLY ACCESS REQUEST. THANKS FOR HELPING TEST!' : 'THE TEAM DENIED YOUR EARLY ACCESS REQUEST' + (m.earlyNote ? ': ' + m.earlyNote : '.')));
+      if (m.early === 'declined') box.append(el('p', 'cm-note', 'YOU CAN TRY AGAIN WITH A NEW REASON IN YOUR PROFILE SETTINGS.'));
+      const ok = el('button', 'cm-go', 'OK'); ok.type = 'button'; ok.addEventListener('click', close); box.append(ok);
+      if (m.early === 'declined') { const pr = el('button', 'cm-mini', 'OPEN PROFILE'); pr.type = 'button'; pr.addEventListener('click', () => { close(); profileModal(); }); box.append(pr); }
+    });
+  }
   let verified = false;
+  const refreshMe = () => { if (verified || !session) return; verified = true; call('/c/me', {}).then(r => { if (!r.ok) return; if (JSON.stringify(r.me) !== JSON.stringify(me)) setSession(session, r.me); notice(r.me); }); };
   function accountBar() {
     const bar = el('div', 'cm-acct');
     const paint = () => {
       bar.textContent = '';
       if (me) {
         if (me.avatar) { const im = el('img', 'cm-av'); im.alt = ''; im.width = 28; im.height = 28; im.src = API + '/c/avatar?u=' + me.id + '&v=' + avVer; bar.append(im); }
-        bar.append(el('b', '', me.name), el('small', '', 'MEMBER' + ({ approved: '  |  EARLY ACCESS', pending: '  |  EARLY ACCESS REQUESTED' }[me.early] || '')));
+        bar.append(el('b', '', me.name), el('small', '', (me.role || 'MEMBER') + (me.devName ? '  |  ' + me.devName : '') + ({ approved: '  |  EARLY ACCESS', pending: '  |  EARLY ACCESS REQUESTED', declined: '  |  EARLY ACCESS DENIED' }[me.early] || '')));
         const pr = el('button', 'cm-mini', 'PROFILE'); pr.type = 'button'; pr.addEventListener('click', profileModal);
         const lo = el('button', 'cm-mini', 'LOG OUT'); lo.type = 'button'; lo.addEventListener('click', async () => { await call('/c/logout', {}); setSession(''); });
         bar.append(pr, lo);
@@ -220,7 +236,7 @@
     };
     const onAcc = () => { if (bar.isConnected) bar.dataset.seen = '1'; else if (bar.dataset.seen) return window.removeEventListener('hb-account', onAcc); paint(); };
     window.addEventListener('hb-account', onAcc); paint();
-    if (session && !verified) { verified = true; call('/c/me', {}).then(r => { if (r.ok && JSON.stringify(r.me) !== JSON.stringify(me)) setSession(session, r.me); }); }   // refresh what we know (and drop a dead login)
+    refreshMe();
     return bar;
   }
 
@@ -339,5 +355,6 @@
     });
   }
 
+  if (session) setTimeout(refreshMe, 600);   // on every page: refresh who we are and tell about a decision
   window.HBCommunity = { mountComments, mountForum, mountLatest, account: () => (session && me ? profileModal() : authModal('login')) };
 })();
