@@ -7,12 +7,15 @@
 //   POST /upload    file  - a game download, streamed into a GitHub Release called "downloads"
 //   GET /poll?id=.. and POST /poll/vote  - public voting for polls and ratings (no mod code; one vote per person)
 //   GET /site-data.js  - the live site content, served instantly from the service (pages fall back to the copy in GitHub)
+//   /c/...  - the community: forum threads, replies, page comments and reviews (needs the D1 database, see community.js)
 //
 // Needs:  Secret    MOD_PASSCODE   the mod code (the same thing typed after "mod pas")
 //         Variable  REPO           e.g. joh71022-cmyk/StillmarkIndustries
 //         Variable  ALLOWED_ORIGIN e.g. https://joh71022-cmyk.github.io
 //         KV binding STORE         (a free KV namespace; holds the token and the wrong-guess counter)
 // Optional: Secret  GITHUB_TOKEN   if you would rather paste the token in Cloudflare than in the panel.
+
+import { communityRoute, communityMod } from './community.js';
 
 const OK_PATH = /^(site-data\.js|uploads\/[\w.\-]{1,80}\.(png|jpg|jpeg|webp|gif))$/;
 const OK_FILE = /^[\w][\w.\-]{0,100}\.(zip|7z|rar|exe|msi|apk|dmg|pkg|deb|appimage|tar|gz|tgz|xz|pdf|txt|md|mp3|ogg|wav|flac|mp4|webm|m4v|ogv|png|jpg|jpeg|gif|webp|unitypackage|blend|psd)$/i;
@@ -41,13 +44,14 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const path0 = new URL(req.url).pathname;
     if (req.method === 'GET' && path0 === '/site-data.js') return siteDataRoute(req, env);
-    if (req.method !== 'POST' && !(req.method === 'GET' && path0 === '/poll')) return reply({ ok: false, error: 'POST ONLY' }, 405);
+    if (req.method !== 'POST' && !(req.method === 'GET' && (path0 === '/poll' || path0.startsWith('/c/')))) return reply({ ok: false, error: 'POST ONLY' }, 405);
     if (!allowed) return reply({ ok: false, error: 'ORIGIN NOT ALLOWED' }, 403);
     if (!env.MOD_PASSCODE || !env.REPO) return reply({ ok: false, error: 'SERVICE IS NOT SET UP YET (MISSING MOD_PASSCODE OR REPO)' }, 500);
 
     const kv = env.STORE;
     const url = new URL(req.url);
     if (url.pathname === '/poll' || url.pathname === '/poll/vote') return pollRoute(req, env, url, reply, kv);
+    if (url.pathname.startsWith('/c/')) return communityRoute(req, env, url, reply, /comment/.test(url.pathname) ? await loadPolls(env) : null);
     const isUpload = url.pathname === '/upload';
 
     let body = {};
@@ -110,9 +114,10 @@ export default {
     }
 
     const action = body.action || (body.files ? 'publish' : 'status');
+    if (String(action).startsWith('c_')) return communityMod(action, body, env, reply);
 
     /* ---- status: is a token saved yet? ---- */
-    if (action === 'status') return reply({ ok: true, tokenSet: !!(await getToken()), canStoreToken: !!kv, uploads: true, fast: !!kv });
+    if (action === 'status') return reply({ ok: true, tokenSet: !!(await getToken()), canStoreToken: !!kv, uploads: true, fast: !!kv, community: !!env.DB });
 
     /* ---- import: copy the site data that is in GitHub into the live copy (use after editing it by hand) ---- */
     if (action === 'import') {
@@ -243,6 +248,7 @@ async function loadPolls(env) {
     const polls = {};
     for (const owner of [...(data.games || []), ...(data.pages || [])]) {
       for (const b of owner.blocks || []) {
+        if (b.type === 'comments' && b.uid) polls['c:' + owner.id + '.' + b.uid] = { ratings: !!b.ratings };
         if ((b.type === 'poll' || b.type === 'rating') && b.uid) {
           polls[owner.id + '.' + b.uid + '.' + (Number(b.rev) || 0)] = { n: b.type === 'rating' ? 5 : (b.options || []).length, closes: String(b.closes || '') };
         }

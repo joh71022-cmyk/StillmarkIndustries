@@ -10,7 +10,7 @@
     const urls = [...S().socials.map(s => s.url), ...S().games.flatMap(g => g.buttons.map(b => b.url))];
     return urls.find(u => u.toLowerCase().includes(KEYS[key])) || null;
   };
-  const PAGES = { home: 'index.html', menu: 'index.html', games: 'games.html', workshop: 'workshop.html' };
+  const PAGES = { home: 'index.html', menu: 'index.html', games: 'games.html', workshop: 'workshop.html', community: 'community.html', forum: 'community.html' };
   const gamePage = id => 'game.html?id=' + encodeURIComponent(id);
 
   /* ---------- nav links on the inner pages ---------- */
@@ -18,7 +18,7 @@
   if (top) {
     const here = location.pathname.split('/').pop() || 'index.html';
     const extra = (S().pages || []).filter(p => p.nav && p.name).map(p => ['page.html?id=' + encodeURIComponent(p.id), p.name.toUpperCase()]);
-    [['games.html', 'GAMES'], ['workshop.html', 'WORKSHOP'], ...extra].forEach(([href, label]) => {
+    [['games.html', 'GAMES'], ['workshop.html', 'WORKSHOP'], ['community.html', 'COMMUNITY'], ...extra].forEach(([href, label]) => {
       if (here + location.search === href || here === href) return;
       const a = document.createElement('a');
       a.className = 'lk'; a.href = href; a.textContent = label;

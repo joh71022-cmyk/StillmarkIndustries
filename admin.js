@@ -87,7 +87,7 @@
     status = h('p', { class: 'adm-status' }, 'READY.');
     content = h('div', { class: 'adm-body' });
     const tabs = h('div', { class: 'adm-tabs', role: 'tablist' });
-    ['games', 'pages', 'devs', 'socials', 'site', 'publish'].forEach(t => tabs.append(h('button', { type: 'button', 'data-tab': t, onclick: () => { tab = t; editing = null; render(); } }, t.toUpperCase())));
+    ['games', 'pages', 'devs', 'socials', 'site', 'community', 'publish'].forEach(t => tabs.append(h('button', { type: 'button', 'data-tab': t, onclick: () => { tab = t; editing = null; render(); } }, t.toUpperCase())));
     panel = h('div', { class: 'adm', hidden: true },
       h('div', { class: 'adm-box', role: 'dialog', 'aria-label': 'Mod panel' },
         h('div', { class: 'adm-bar' }, h('b', {}, 'MOD PANEL'), h('button', { type: 'button', class: 'tx', onclick: close, 'aria-label': 'Close mod panel' }, 'X')),
@@ -100,7 +100,7 @@
     [...panel.querySelectorAll('.adm-tabs button')].forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     content.textContent = '';
     if (editing) return content.append(editing());
-    content.append({ games: gamesTab, pages: pagesTab, devs: devsTab, socials: socialsTab, site: siteTab, publish: publishTab }[tab]());
+    content.append({ games: gamesTab, pages: pagesTab, devs: devsTab, socials: socialsTab, site: siteTab, community: communityTab, publish: publishTab }[tab]());
   }
   const changed = () => { dirty = true; saveDraft(); render(); };
 
@@ -445,6 +445,14 @@
       btn('DISCARD DRAFT', () => { try { localStorage.removeItem('hb-draft'); } catch (e) {} location.reload(); }));
   }
 
+  function communityTab() {
+    const box = h('div', {}, h('p', { class: 'adm-note' }, 'LOADING...'));
+    if (!pubUrl()) { box.textContent = ''; box.append(h('p', { class: 'adm-note' }, 'SET UP THE PUBLISH SERVICE FIRST (PUBLISH TAB).')); return box; }
+    const go = () => { box.textContent = ''; box.append(window.HBCommAdmin({ h, btn, call: callService, status })); };
+    if (window.HBCommAdmin) go();
+    else { const s = document.createElement('script'); s.src = 'community-admin.js?v=' + (window.HB_VER || '1'); s.onload = go; s.onerror = () => { box.textContent = 'COULD NOT LOAD THE COMMUNITY TOOLS.'; }; document.head.append(s); }
+    return box;
+  }
   const publishTab = () => (pubUrl() ? serviceTab(pubUrl()) : tokenTab());
 
   // publish through the service: the GitHub token is saved there once and never comes back to a browser

@@ -163,7 +163,7 @@
       if (open) {
         const body = h('div', { class: 'bld-body' });
         const build = () => { body.textContent = ''; T.fields.filter(f => !f.hidden).forEach(f => body.append(field(b, f, build)));
-          if (T.needsUid) body.append(h('div', { class: 'bld-field' }, btn('RESET VOTES (START A FRESH COUNT)', () => { b.rev = String((+b.rev || 0) + 1); tick(); HB.fx.ok(); }), h('small', { class: 'adm-hint' }, 'VOTES START COUNTING ONCE YOU PUBLISH THIS PAGE. USE RESET IF YOU CHANGE THE OPTIONS.')));
+          if (T.votes) body.append(h('div', { class: 'bld-field' }, btn('RESET VOTES (START A FRESH COUNT)', () => { b.rev = String((+b.rev || 0) + 1); tick(); HB.fx.ok(); }), h('small', { class: 'adm-hint' }, 'VOTES START COUNTING ONCE YOU PUBLISH THIS PAGE. USE RESET IF YOU CHANGE THE OPTIONS.')));
           body.append(h('details', { class: 'bld-style' }, h('summary', {}, 'STYLE: LOOK, ALIGN, WIDTH, ANIMATION'), ...B.common.map(f => field(b, f, build)))); };
         build(); li.append(body);
         body.addEventListener('input', () => { sum.textContent = B.summary(b); });

@@ -172,6 +172,12 @@
   const fileLabel = u => { try { return decodeURIComponent(u.split('?')[0].split('/').pop()) || 'file'; } catch (e) { return 'file'; } };
   const randId = () => (Math.random().toString(36) + '00000000').slice(2, 10);
 
+  let cmLoad = null;
+  const loadCommunity = () => cmLoad || (cmLoad = new Promise((ok, no) => {
+    if (window.HBCommunity) return ok();
+    const s = document.createElement('script'); s.src = 'community.js?v=' + (window.HB_VER || '1'); s.onload = ok; s.onerror = () => { cmLoad = null; no(); }; document.head.append(s);
+  }));
+
   /* ---------- votes: polls and ratings talk to the Cloudflare service ---------- */
   async function pollCall(id, choice) {
     const res = choice == null
@@ -444,7 +450,7 @@
         d.append(row); return d;
       } },
 
-    poll: { label: 'POLL', group: 'INTERACT', help: 'A question visitors can vote on. One vote per person. Goes live when you publish.', needsUid: true,
+    poll: { label: 'POLL', group: 'INTERACT', help: 'A question visitors can vote on. One vote per person. Goes live when you publish.', needsUid: true, votes: true,
       defaults: () => ({ question: 'What should we make next?', options: ['A sequel', 'A new game', 'More levels'], results: 'after', closes: '', uid: '', rev: '0' }),
       fields: [{ k: 'question', label: 'QUESTION', type: 'text', max: 200 }, { k: 'options', label: 'OPTIONS (2 TO 8)', type: 'lines', lines: 'strings', rows: 5 },
         { k: 'results', label: 'SHOW RESULTS', type: 'select', options: ['after', 'always'] }, { k: 'closes', label: 'CLOSES ON (OPTIONAL)', type: 'text', max: 20, ph: '2027-01-31 18:00', hint: 'YEAR-MONTH-DAY HOUR:MINUTE. LEAVE EMPTY TO KEEP IT OPEN.' },
@@ -471,7 +477,7 @@
         }).catch(() => { note.textContent = 'VOTING IS OFFLINE RIGHT NOW.'; });
         return d;
       } },
-    rating: { label: 'STAR RATING', group: 'INTERACT', help: 'Visitors rate from 1 to 5 stars. One vote per person. Goes live when you publish.', needsUid: true,
+    rating: { label: 'STAR RATING', group: 'INTERACT', help: 'Visitors rate from 1 to 5 stars. One vote per person. Goes live when you publish.', needsUid: true, votes: true,
       defaults: () => ({ title: 'RATE THIS GAME', uid: '', rev: '0' }),
       fields: [{ k: 'title', label: 'TITLE', type: 'text', max: 120 }, { k: 'uid', type: 'text', max: 20, hidden: true }, { k: 'rev', type: 'text', max: 4, hidden: true }],
       render: (b, ctx) => {
@@ -485,6 +491,33 @@
         const vote = async i => { note.textContent = 'SENDING...'; try { const r = await pollCall(id, i); if (r.counts) { saveVote(id, r.voted != null ? r.voted : i); summary(r, r.voted != null ? r.voted : i); } else note.textContent = r.error || 'COULD NOT SEND'; } catch (e) { note.textContent = 'RATINGS ARE OFFLINE RIGHT NOW.'; } };
         paint(0, null, true); note.textContent = 'LOADING...';
         pollCall(id).then(r => { if (!r.counts) { note.textContent = r.error || ''; return; } const mine = r.voted != null ? r.voted : myVote(id); summary(r, mine); }).catch(() => { note.textContent = 'RATINGS ARE OFFLINE RIGHT NOW.'; });
+        return d;
+      } },
+    comments: { label: 'COMMENTS', group: 'INTERACT', help: 'A comment section under this spot. Turn on reviews to let people add 1 to 5 stars. Needs the community set up in the PUBLISH tab.', needsUid: true,
+      defaults: () => ({ title: 'COMMENTS', ratings: false, uid: '', rev: '0' }),
+      fields: [{ k: 'title', label: 'TITLE', type: 'text', max: 80 }, { k: 'ratings', label: 'LET PEOPLE ADD STAR RATINGS (REVIEWS)', type: 'check' },
+        { k: 'uid', type: 'text', max: 20, hidden: true }, { k: 'rev', type: 'text', max: 4, hidden: true }],
+      render: (b, ctx) => {
+        const d = el('div', 'bk-comments'); if (!b.uid) { d.append(el('div', 'bk-empty', 'NOT READY')); return d; }
+        if (ctx && ctx.preview) { d.append(el('h4', 'bk-sub', b.title || 'COMMENTS'), el('div', 'bk-empty', 'PREVIEW: COMMENTS TURN ON WHEN YOU PUBLISH.')); return d; }
+        loadCommunity().then(() => window.HBCommunity.mountComments(d, ((ctx && ctx.ownerId) || 'x') + '.' + b.uid, { title: b.title, ratings: b.ratings })).catch(() => d.append(el('div', 'bk-empty', 'COMMENTS ARE OFFLINE RIGHT NOW.')));
+        return d;
+      } },
+    forum: { label: 'FORUM', group: 'INTERACT', help: 'The whole forum (threads and replies) right on this page.',
+      defaults: () => ({}), fields: [],
+      render: (b, ctx) => {
+        const d = el('div', 'bk-forum'); if (ctx && ctx.preview) { d.append(el('div', 'bk-empty', 'PREVIEW: THE FORUM SHOWS HERE ON THE LIVE PAGE.')); return d; }
+        loadCommunity().then(() => window.HBCommunity.mountForum(d, { hash: false })).catch(() => d.append(el('div', 'bk-empty', 'THE FORUM IS OFFLINE RIGHT NOW.')));
+        return d;
+      } },
+    latest: { label: 'LATEST THREADS', group: 'INTERACT', help: 'A small list of the newest forum threads, linking to the forum.',
+      defaults: () => ({ title: 'FROM THE COMMUNITY', count: '5' }),
+      fields: [{ k: 'title', label: 'TITLE', type: 'text', max: 80 }, { k: 'count', label: 'HOW MANY', type: 'select', options: ['3', '5', '8'] }],
+      render: (b, ctx) => {
+        const d = el('div', 'bk-latest'); d.append(el('h4', 'bk-sub', b.title || 'LATEST')); const box = el('div', 'cm-threads'); d.append(box);
+        if (ctx && ctx.preview) { box.append(el('div', 'bk-empty', 'PREVIEW: THE NEWEST THREADS SHOW HERE.')); return d; }
+        loadCommunity().then(() => window.HBCommunity.mountLatest(box, { count: +b.count || 5 })).catch(() => {});
+        const a = el('a', 'bk-btn', 'OPEN THE FORUM'); a.href = 'community.html'; a.setAttribute('data-go', ''); d.append(a);
         return d;
       } },
     tabs: { label: 'TABS', group: 'INTERACT', help: 'Content split into tabs that visitors click between.',
