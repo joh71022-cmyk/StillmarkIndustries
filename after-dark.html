@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Hollow After Dark - Hollowblade Industries</title>
+<meta name="description" content="Info about The Hollow After Dark by Hollowblade Industries.">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23fff' stroke-width='4' stroke-dasharray='4 3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="gamepage ready">
+  <canvas id="fx" aria-hidden="true"></canvas>
+
+  <div class="bg-gears" aria-hidden="true">
+    <div class="g" style="--x:-12vmin;--y:calc(100% - 34vmin);--s:48vmin;--d:16"><svg class="gear dim" data-teeth="16" data-outer="100" data-root="86" data-ring="66" data-hub="10" data-spokes="4" style="--t:100s"></svg></div>
+    <div class="g" style="--x:calc(100% - 30vmin);--y:10vmin;--s:40vmin;--d:-18"><svg class="gear dim rev" data-teeth="12" data-outer="100" data-root="85" data-ring="64" data-hub="12" data-spokes="4" style="--t:80s"></svg></div>
+  </div>
+
+  <nav class="top"><a href="games.html" data-go class="back">&lt; GAMES</a></nav>
+
+  <main class="hero">
+    <div class="gear-wrap hero-gear flash" aria-hidden="true">
+      <svg class="gear main" data-teeth="14" data-outer="100" data-root="84" data-ring="64" data-hub="16" data-spokes="7" style="--t:20s"></svg>
+    </div>
+    <p class="kicker rise" style="--r:0">// GAME FILE 02</p>
+    <h1 class="gtitle rise" style="--r:1">THE HOLLOW<br>AFTER DARK</h1>
+
+    <section class="info rise" style="--r:2" aria-label="Game info">
+      <dl>
+        <div><dt>DEVELOPER</dt><dd>HOLLOWBLADE INDUSTRIES</dd></div>
+        <div><dt>SERIES</dt><dd>THE HOLLOW</dd></div>
+        <div><dt>FIND IT AT</dt><dd>ITCH.IO</dd></div>
+      </dl>
+      <!-- TODO: write The Hollow After Dark description here -->
+      <p class="blurb">MORE INFO COMING SOON. CHECK THE ITCH.IO PAGE FOR THE GAME.</p>
+    </section>
+
+    <!-- TODO: replace "#" with The Hollow After Dark itch.io page URL -->
+    <a class="cta rise" style="--r:3" href="#" target="_blank" rel="noopener" data-itch>
+      <svg viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true"><polygon points="2,30 30,3 170,3 198,30 170,57 30,57"/></svg>
+      <span>PLAY ON ITCH.IO</span>
+    </a>
+  </main>
+
+  <div class="hud">
+    <button type="button" data-t="sfx">SFX: ON</button>
+    <button type="button" data-t="music">MUSIC: ON</button>
+  </div>
+  <footer class="foot"><span>&copy; HOLLOWBLADE INDUSTRIES</span><span id="clock">SYS --:--:--</span></footer>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="scan" aria-hidden="true"></div>
+  <div class="wipe on" aria-hidden="true"></div>
+  <script src="script.js"></script>
+</body>
+</html>

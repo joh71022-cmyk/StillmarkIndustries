@@ -183,6 +183,33 @@ html.overdrive .flash { animation-duration:.4s; }
 .tiktok:hover, .tiktok:focus-visible { background:#fff; color:#000; transform:scale(1.04); }
 .tiktok:hover span { color:#000; }
 
+/* ---------- game info pages ---------- */
+.banner + .banner { margin-top:.9rem; }
+.banner span { padding:0 6%; }
+body.gamepage { display:flex; flex-direction:column; align-items:center; padding-bottom:70px; }
+.hero { position:relative; z-index:2; width:min(100%,760px); padding:clamp(1rem,5vh,3rem) 5vw 0; text-align:center; display:grid; justify-items:center; }
+.hero-gear { z-index:0; top:clamp(110px,22vh,190px); width:min(60vmin,420px); margin:calc(min(60vmin,420px) / -2) 0 0 calc(min(60vmin,420px) / -2); opacity:.6; }
+.kicker, .gtitle, .info, .cta { position:relative; z-index:1; }
+.kicker { font-size:.7rem; letter-spacing:.3em; color:var(--dim); margin-bottom:1rem; }
+.gtitle { font-size:clamp(1.8rem,7.4vw,4.8rem); line-height:1.25; letter-spacing:.1em; text-shadow:0 0 22px rgba(255,255,255,.3); }
+.info { width:100%; margin-top:clamp(2.4rem,7vh,4rem); border:2px solid #fff; background:rgba(0,0,0,.78); padding:1.4rem 1.2rem 1.5rem; text-align:left; }
+.info::before,.info::after { content:""; position:absolute; width:14px; height:14px; border:2px solid #fff; background:#000; }
+.info::before { top:-8px; left:-8px; } .info::after { bottom:-8px; right:-8px; }
+.info dl { display:grid; gap:.7rem; }
+.info dl div { display:flex; justify-content:space-between; gap:1rem; border-bottom:1px dashed #333; padding-bottom:.6rem; }
+.info dt { font-size:.62rem; letter-spacing:.24em; color:var(--dim); }
+.info dd { font-size:clamp(.7rem,1.8vw,.95rem); letter-spacing:.12em; text-align:right; }
+.blurb { margin-top:1.2rem; font-size:.7rem; line-height:2; letter-spacing:.16em; color:var(--mid); }
+.cta { margin-top:2rem; width:clamp(220px,34vw,320px); height:clamp(56px,7vw,76px); display:grid; place-items:center;
+  font-size:clamp(.85rem,1.9vw,1.3rem); letter-spacing:.14em; transition:transform .15s; animation:fadeup .7s calc(.45s + var(--r,0) * .15s) forwards, pulse 2s 2s ease-in-out infinite; }
+.cta svg { position:absolute; inset:0; width:100%; height:100%; fill:#000; stroke:#fff; stroke-width:3; transition:fill .15s; }
+.cta svg polygon { vector-effect:non-scaling-stroke; }
+.cta span { position:relative; transition:color .15s; }
+.cta:hover, .cta:focus-visible { transform:scale(1.08); }
+.cta:hover svg, .cta:focus-visible svg { fill:#fff; }
+.cta:hover span, .cta:focus-visible span { color:#000; }
+.cta:active { transform:scale(.97); }
+
 /* ---------- responsive / a11y ---------- */
 @media (max-width:640px) {
   .dev-grid { grid-template-columns:1fr; }

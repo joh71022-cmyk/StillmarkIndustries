@@ -246,6 +246,12 @@
   const discord = $('[data-discord]');
   if (discord) discord.addEventListener('click', () => { sfx('discord'); toast('OPENING DISCORD...'); });
 
+  /* ---------- placeholder links (href="#") just say "coming soon" ---------- */
+  $$('a[data-itch]').forEach(a => a.addEventListener('click', e => {
+    if (a.getAttribute('href') === '#') { e.preventDefault(); sfx('deny'); toast('ITCH.IO PAGE COMING SOON'); }
+    else { sfx('discord'); toast('OPENING ITCH.IO...'); }
+  }));
+
   /* ---------- page transitions ---------- */
   const wipe = $('.wipe');
   let leaving = false;
@@ -281,6 +287,7 @@
     const page = body.classList;
     if (page.contains('menu') && e.key === 'Enter') { e.preventDefault(); sfx('click'); go('games.html'); }
     if (page.contains('games') && (e.key === 'Escape' || e.key === 'Backspace')) go('index.html');
+    if (page.contains('gamepage') && (e.key === 'Escape' || e.key === 'Backspace')) go('games.html');
     if (e.key === 'm' || e.key === 'M') { Snd.toggleMusic(); paintHud(); }
   });
 
