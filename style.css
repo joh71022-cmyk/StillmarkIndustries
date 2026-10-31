@@ -733,3 +733,51 @@ html[data-platform="tv"] .hud button, html[data-platform="tv"] .quick a, html[da
 /* the picture block's outer box shares a class name with the picture itself: keep it full width so pictures never collapse before they load */
 section.bk.bk-image { margin-inline:0; width:100%; }
 .bk-image img { height:auto; max-width:100%; }
+
+/* =====================================================================
+   Phone refinements: one fluid scale, a slim bottom bar, nothing overlapping.
+   Every size here follows the screen width, so it fits a small phone and a big one.
+   ===================================================================== */
+html[data-platform="phone"] { font-size:clamp(12px, 3.9vw, 16px); }
+html[data-platform="phone"] body { overflow-wrap:break-word; }
+
+/* the control bar: one slim row stuck to the bottom */
+html[data-platform="phone"] .hud { position:fixed; top:auto; left:0; right:0; bottom:0; display:flex; flex-wrap:nowrap; justify-content:center; align-items:center; gap:6px; padding:6px 6px calc(6px + env(safe-area-inset-bottom)); background:#000; border-top:1px solid #333; z-index:60; }
+html[data-platform="phone"] .hud .acct-hud { display:contents; }
+html[data-platform="phone"] .hud button { flex:0 1 auto; min-width:0; white-space:nowrap; font-size:.58rem; letter-spacing:.03em; padding:0 8px; min-height:40px; }
+html[data-platform="phone"] .hud .acct-me { min-width:40px; width:40px; height:40px; padding:0; }
+html[data-platform="phone"] .hud .acct-hud .acct-btn:nth-child(2) { display:none; }   /* SIGN UP is inside the LOG IN window */
+html[data-platform="phone"] .volpop { left:8px; right:8px; bottom:calc(60px + env(safe-area-inset-bottom)); top:auto; min-width:0; }
+
+/* the footer sits at the end of the page instead of floating over it */
+html[data-platform="phone"] .foot { position:static; width:100%; display:flex; flex-wrap:wrap; justify-content:center; gap:.3rem 1rem; text-align:center; padding:18px 12px calc(76px + env(safe-area-inset-bottom)); font-size:.55rem; }
+html[data-platform="phone"] .foot #clock { display:none; }
+html[data-platform="phone"] body.menu .foot { display:none; }
+html[data-platform="phone"] body.games, html[data-platform="phone"] body.gamepage { padding-bottom:0; }
+
+/* the links along the top (the terminal lives in the bottom bar) */
+html[data-platform="phone"] .top { display:flex; flex-wrap:wrap; gap:0 14px; padding:max(10px, env(safe-area-inset-top)) 12px 4px; }
+html[data-platform="phone"] .top a, html[data-platform="phone"] .top button, html[data-platform="phone"] .lk { font-size:.62rem; letter-spacing:.14em; }
+html[data-platform="phone"] .top [data-term], html[data-platform="phone"] .quick [data-term] { display:none; }
+
+/* the menu */
+html[data-platform="phone"] .title { font-size:min(8vw, 2.4rem); letter-spacing:.07em; }
+html[data-platform="phone"] .title .word { margin:0 .1em; }
+html[data-platform="phone"] .enter { margin-top:2.4rem; }
+html[data-platform="phone"] .hint { font-size:.62rem; letter-spacing:.14em; text-align:center; }
+html[data-platform="phone"] .quick a, html[data-platform="phone"] .quick button { font-size:.68rem; letter-spacing:.16em; }
+html[data-platform="phone"] .start { font-size:.72rem; letter-spacing:.14em; padding:0 8px; }
+html[data-platform="phone"] .log { font-size:.66rem; letter-spacing:.06em; }
+
+/* the games page */
+html[data-platform="phone"] .banner { height:auto; min-height:72px; padding:14px 0; font-size:clamp(.78rem, 3.9vw, 1.15rem); letter-spacing:.07em; }
+html[data-platform="phone"] .banner span { padding:0 11%; }
+html[data-platform="phone"] .sub { font-size:.6rem; letter-spacing:.14em; padding:0 8px; text-align:center; }
+html[data-platform="phone"] .track span { font-size:.62rem; letter-spacing:.16em; }
+html[data-platform="phone"] .soon { font-size:clamp(1.1rem, 6.4vw, 1.8rem); letter-spacing:.08em; }
+html[data-platform="phone"] .slot > span { font-size:clamp(1.2rem, 6vw, 1.8rem); }
+html[data-platform="phone"] .devs h3 { letter-spacing:.2em; }
+html[data-platform="phone"] .dev strong { font-size:.9rem; }
+html[data-platform="phone"] .tiktok-old { padding:.8rem 1rem; }
+html[data-platform="phone"] .tiktok b { font-size:.8rem; letter-spacing:.06em; overflow-wrap:anywhere; }
+html[data-platform="phone"] .toast { white-space:normal; width:max-content; max-width:86vw; text-align:center; font-size:.8rem; letter-spacing:.12em; }

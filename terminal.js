@@ -66,6 +66,9 @@
     hintEl.firstChild.textContent = 'TAP ';
   }
 
+  const bootStart = $('.start');
+  if (bootStart && window.HB_PLATFORM && window.HB_PLATFORM.touch) bootStart.textContent = '[ TAP ANYWHERE TO START ]';
+
   /* ---------- visit counter ---------- */
   // counted once per real visitor (address + browser) by the service, so refreshing never adds a visit
   let visits = 0;
