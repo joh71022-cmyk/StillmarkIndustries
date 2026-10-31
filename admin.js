@@ -35,12 +35,13 @@
   };
 
   /* ---------- state ---------- */
-  let data, panel, content, status, tab = 'games', editing = null;
+  let data, panel, content, status, tab = 'games', editing = null, dirty = false;
   const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'game';
   const okUrl = u => /^https?:\/\/\S+$/i.test(u);
+  const isData = u => /^data:image\//i.test(u || '');
   const saveDraft = () => {
     try { localStorage.setItem('hb-draft', JSON.stringify(data)); status.textContent = 'DRAFT SAVED. ONLY YOU SEE IT UNTIL YOU PUBLISH.'; }
-    catch (e) { status.textContent = 'COULD NOT SAVE DRAFT (BROWSER STORAGE BLOCKED).'; }
+    catch (e) { status.textContent = 'DRAFT TOO BIG FOR BROWSER STORAGE. USE SMALLER PICTURES.'; }
   };
 
   function open() {
@@ -51,13 +52,12 @@
     render();
   }
   function close() { panel.hidden = true; HB.fx.beep(2); if (dirty) location.reload(); }
-  let dirty = false;
 
   function build() {
     status = h('p', { class: 'adm-status' }, 'READY.');
     content = h('div', { class: 'adm-body' });
     const tabs = h('div', { class: 'adm-tabs', role: 'tablist' });
-    ['games', 'devs', 'socials', 'publish'].forEach(t => tabs.append(h('button', { type: 'button', 'data-tab': t, onclick: () => { tab = t; editing = null; render(); } }, t.toUpperCase())));
+    ['games', 'devs', 'socials', 'site', 'publish'].forEach(t => tabs.append(h('button', { type: 'button', 'data-tab': t, onclick: () => { tab = t; editing = null; render(); } }, t.toUpperCase())));
     panel = h('div', { class: 'adm', hidden: true },
       h('div', { class: 'adm-box', role: 'dialog', 'aria-label': 'Mod panel' },
         h('div', { class: 'adm-bar' }, h('b', {}, 'MOD PANEL'), h('button', { type: 'button', class: 'tx', onclick: close, 'aria-label': 'Close mod panel' }, 'X')),
@@ -67,15 +67,34 @@
   }
 
   function render() {
-    $$tabs().forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    [...panel.querySelectorAll('.adm-tabs button')].forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     content.textContent = '';
     if (editing) return content.append(editing());
-    content.append({ games: gamesTab, devs: devsTab, socials: socialsTab, publish: publishTab }[tab]());
+    content.append({ games: gamesTab, devs: devsTab, socials: socialsTab, site: siteTab, publish: publishTab }[tab]());
   }
-  const $$tabs = () => [...panel.querySelectorAll('.adm-tabs button')];
   const changed = () => { dirty = true; saveDraft(); render(); };
 
+  /* ---------- pictures: pick a file, shrink it, keep it as a small data URL ---------- */
+  function shrink(file, max = 320) {
+    return new Promise((resolve, reject) => {
+      if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) return reject(new Error('USE A PNG, JPG, WEBP OR GIF'));
+      if (file.size > 12e6) return reject(new Error('FILE IS OVER 12 MB'));
+      const img = new Image(), u = URL.createObjectURL(file);
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(u);
+        resolve(c.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', .9));
+      };
+      img.onerror = () => { URL.revokeObjectURL(u); reject(new Error('COULD NOT READ THAT IMAGE')); };
+      img.src = u;
+    });
+  }
+
   /* ---------- generic pieces ---------- */
+  const btn = (label, fn, cls = '') => h('button', { type: 'button', class: cls, onclick: fn }, label);
   function move(arr, i, d) {
     const j = i + d; if (j < 0 || j >= arr.length) return;
     [arr[i], arr[j]] = [arr[j], arr[i]]; changed();
@@ -88,48 +107,97 @@
       setTimeout(() => { b.dataset.sure = ''; b.textContent = 'DELETE'; }, 2500);
     });
   }
-  const btn = (label, fn, cls = '') => h('button', { type: 'button', class: cls, onclick: fn }, label);
-  function list(arr, titleOf, subOf, onEdit) {
+  function list(arr, titleOf, subOf, onEdit, thumbOf) {
     const ul = h('ul', { class: 'adm-list' });
     if (!arr.length) ul.append(h('li', { class: 'adm-empty' }, 'NOTHING HERE YET.'));
-    arr.forEach((it, i) => ul.append(h('li', {},
-      h('div', { class: 'adm-t' }, h('b', {}, titleOf(it)), h('small', {}, subOf(it))),
-      h('div', { class: 'adm-btns' }, btn('EDIT', () => onEdit(it, i)), btn('UP', () => move(arr, i, -1)), btn('DOWN', () => move(arr, i, 1)), del(arr, i)))));
+    arr.forEach((it, i) => {
+      const th = thumbOf && thumbOf(it);
+      ul.append(h('li', {},
+        th ? h('span', { class: 'adm-th', style: 'background-image:url("' + th.replace(/"/g, '%22') + '")' }) : null,
+        h('div', { class: 'adm-t' }, h('b', {}, titleOf(it)), h('small', {}, subOf(it))),
+        h('div', { class: 'adm-btns' }, btn('EDIT', () => onEdit(it, i)), btn('UP', () => move(arr, i, -1)), btn('DOWN', () => move(arr, i, 1)), del(arr, i))));
+    });
     return ul;
   }
+
+  // fields: text | area | check | select | image
   function editor(title, fields, vals, save) {
     const form = h('form', { class: 'adm-form' }, h('h4', {}, title));
-    const inputs = {};
+    const get = {};
     fields.forEach(f => {
       const id = 'af-' + f.k;
-      let inp;
-      if (f.type === 'area') inp = h('textarea', { id, rows: f.rows || 4, placeholder: f.ph || '' });
-      else if (f.type === 'check') inp = h('input', { id, type: 'checkbox' });
-      else inp = h('input', { id, type: 'text', placeholder: f.ph || '', autocomplete: 'off' });
-      if (f.type === 'check') inp.checked = !!vals[f.k]; else inp.value = vals[f.k] || '';
-      inputs[f.k] = inp;
-      form.append(f.type === 'check' ? h('label', { for: id, class: 'chk' }, inp, f.label) : h('label', { for: id }, f.label, inp));
+      if (f.type === 'check') {
+        const inp = h('input', { id, type: 'checkbox' }); inp.checked = !!vals[f.k];
+        get[f.k] = () => inp.checked;
+        form.append(h('label', { for: id, class: 'chk' }, inp, f.label));
+      } else if (f.type === 'image') {
+        let val = vals[f.k] || '', cleared = false;
+        const thumb = h('span', { class: 'adm-prev' }), note = h('small', { class: 'adm-hint' });
+        const paint = () => {
+          thumb.style.backgroundImage = val ? 'url("' + val.replace(/"/g, '%22') + '")' : '';
+          thumb.classList.toggle('empty', !val);
+          note.textContent = val ? (isData(val) ? 'NEW PICTURE READY (SAVED WHEN YOU HIT SAVE)' : 'CURRENT PICTURE') : (f.fallback && !cleared ? f.fallback : 'NO PICTURE');
+        };
+        const file = h('input', { id, type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
+        file.addEventListener('change', async () => {
+          const fl = file.files[0]; if (!fl) return;
+          try { val = await shrink(fl, f.max || 320); cleared = false; paint(); HB.fx.buy(); }
+          catch (e) { note.textContent = 'ERROR: ' + e.message; HB.fx.err(); }
+          file.value = '';
+        });
+        const urlBox = h('input', { type: 'text', placeholder: 'OR PASTE A PICTURE LINK (https://...)', autocomplete: 'off' });
+        urlBox.addEventListener('change', () => {
+          const u = urlBox.value.trim();
+          if (u && !okUrl(u)) { note.textContent = 'LINK MUST START WITH https://'; return HB.fx.err(); }
+          if (u) { val = u; cleared = false; paint(); }
+        });
+        paint();
+        get[f.k] = () => val; get[f.k + '_cleared'] = () => cleared;
+        form.append(h('div', { class: 'adm-img' }, h('span', { class: 'adm-lbl' }, f.label), h('div', { class: 'adm-imgrow' }, thumb, h('div', { class: 'adm-imgctl' }, file, urlBox,
+          btn('REMOVE PICTURE', () => { val = ''; cleared = true; paint(); }))), note));
+      } else {
+        let inp;
+        if (f.type === 'area') inp = h('textarea', { id, rows: f.rows || 4, placeholder: f.ph || '' });
+        else if (f.type === 'select') inp = h('select', { id }, f.options.map(o => h('option', { value: o }, o.toUpperCase())));
+        else inp = h('input', { id, type: 'text', placeholder: f.ph || '', autocomplete: 'off' });
+        inp.value = vals[f.k] != null && vals[f.k] !== '' ? vals[f.k] : (f.def || '');
+        get[f.k] = () => inp.value.trim();
+        form.append(h('label', { for: id }, f.label, inp));
+      }
       if (f.hint) form.append(h('small', { class: 'adm-hint' }, f.hint));
     });
     const msg = h('p', { class: 'adm-msg' });
     form.append(msg, h('div', { class: 'adm-btns' }, h('button', { type: 'submit' }, 'SAVE'), btn('CANCEL', () => { editing = null; render(); })));
     form.addEventListener('submit', e => {
       e.preventDefault();
-      const out = {};
-      fields.forEach(f => { out[f.k] = f.type === 'check' ? inputs[f.k].checked : inputs[f.k].value.trim(); });
+      const out = {}; Object.keys(get).forEach(k => { out[k] = get[k](); });
       const err = save(out);
       if (err) { msg.textContent = err; HB.fx.err(); } else { HB.fx.buy(); editing = null; changed(); }
     });
-    setTimeout(() => { const f = form.querySelector('input,textarea'); if (f) f.focus(); }, 30);
+    setTimeout(() => { const f = form.querySelector('input[type=text],textarea'); if (f) f.focus(); }, 30);
     return form;
   }
   const addBar = (label, fn) => h('div', { class: 'adm-add' }, btn(label, fn, 'big'));
+  const parseLinks = text => {
+    const out = [];
+    for (const l of text.split('\n').map(x => x.trim()).filter(Boolean)) {
+      const i = l.lastIndexOf('|');
+      const label = i < 0 ? '' : l.slice(0, i).trim(), url = i < 0 ? '' : l.slice(i + 1).trim();
+      if (!label || !okUrl(url)) return { err: 'BAD LINE: "' + l + '". USE  LABEL | https://link' };
+      out.push({ label, url });
+    }
+    return { list: out };
+  };
+  const linksText = arr => (arr || []).map(b => b.label + ' | ' + b.url).join('\n');
 
   /* ---------- games ---------- */
   const gameFields = [
     { k: 'name', label: 'GAME NAME', ph: 'THE HOLLOW AFTER DARK' },
+    { k: 'icon', label: 'GAME ICON', type: 'image', max: 256, hint: 'SHOWS ON THE GAMES PAGE BANNER AND AT THE TOP OF THE GAME PAGE.' },
+    { k: 'tagline', label: 'BANNER SUBTITLE', ph: 'CLICK HERE', hint: 'THE SMALL TEXT UNDER THE NAME ON THE BANNER. EMPTY = CLICK HERE.' },
+    { k: 'status', label: 'STATUS TAG', ph: 'IN DEVELOPMENT', hint: 'OPTIONAL. SHOWS UNDER THE TITLE, E.G. OUT NOW / COMING SOON.' },
     { k: 'info', label: 'INFO ROWS', type: 'area', rows: 4, ph: 'DEVELOPER: HOLLOWBLADE INDUSTRIES\nFIND IT AT: ITCH.IO', hint: 'ONE ROW PER LINE, LIKE  LABEL: VALUE' },
-    { k: 'blurb', label: 'DESCRIPTION', type: 'area', rows: 4 },
+    { k: 'blurb', label: 'DESCRIPTION', type: 'area', rows: 5 },
     { k: 'buttons', label: 'BUTTONS', type: 'area', rows: 3, ph: 'PLAY ON ITCH.IO | https://yourname.itch.io/game', hint: 'ONE BUTTON PER LINE, LIKE  LABEL | https://link' }
   ];
   function parseGame(v, g) {
@@ -137,20 +205,14 @@
     const info = v.info.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
       const i = l.indexOf(':'); return i < 0 ? ['INFO', l] : [l.slice(0, i).trim(), l.slice(i + 1).trim()];
     });
-    const buttons = [];
-    for (const l of v.buttons.split('\n').map(x => x.trim()).filter(Boolean)) {
-      const i = l.lastIndexOf('|');
-      const label = i < 0 ? '' : l.slice(0, i).trim(), url = i < 0 ? '' : l.slice(i + 1).trim();
-      if (!label || !okUrl(url)) return 'BAD BUTTON LINE: "' + l + '". USE  LABEL | https://link';
-      buttons.push({ label, url });
-    }
-    g.name = v.name; g.info = info; g.blurb = v.blurb; g.buttons = buttons;
+    const b = parseLinks(v.buttons); if (b.err) return b.err;
+    Object.assign(g, { name: v.name, info, blurb: v.blurb, tagline: v.tagline, status: v.status, icon: v.icon, buttons: b.list });
   }
   function gamesTab() {
     const wrap = h('div', {});
     wrap.append(addBar('+ ADD GAME', () => {
       editing = () => editor('ADD A GAME', gameFields, {}, v => {
-        const g = { id: '', name: '', info: [], blurb: '', buttons: [] };
+        const g = { id: '' };
         const err = parseGame(v, g); if (err) return err;
         let id = slug(v.name), n = 2; const base = id;
         while (data.games.some(x => x.id === id)) id = base + '-' + n++;
@@ -159,39 +221,43 @@
       render();
     }), list(data.games, g => g.name, g => 'ID: ' + g.id + '  |  ' + g.buttons.length + ' BUTTON(S)', g => {
       editing = () => editor('EDIT: ' + g.name, gameFields, {
-        name: g.name, blurb: g.blurb,
-        info: g.info.map(p => p[0] + ': ' + p[1]).join('\n'),
-        buttons: g.buttons.map(b => b.label + ' | ' + b.url).join('\n')
+        name: g.name, blurb: g.blurb, icon: g.icon, tagline: g.tagline, status: g.status,
+        info: g.info.map(p => p[0] + ': ' + p[1]).join('\n'), buttons: linksText(g.buttons)
       }, v => parseGame(v, g));
       render();
-    }));
+    }, g => g.icon));
     return wrap;
   }
 
   /* ---------- devs ---------- */
   const devFields = [
     { k: 'name', label: 'NAME', ph: 'TheCelticBhoys' },
-    { k: 'role', label: 'ROLE', ph: 'CODER & DESIGNER' },
-    { k: 'url', label: 'PROFILE LINK', ph: 'https://discord.com/users/123...' },
-    { k: 'avatar', label: 'PICTURE LINK (OPTIONAL)', ph: 'https://.../picture.png', hint: 'LEAVE EMPTY TO SHOW THEIR FIRST LETTER' },
-    { k: 'main', label: 'THIS IS THE MAIN DEV', type: 'check' }
+    { k: 'role', label: 'ROLE / TITLE', ph: 'CODER & DESIGNER' },
+    { k: 'avatar', label: 'PROFILE PICTURE', type: 'image', max: 320, fallback: 'USING THE ORIGINAL PICTURE. UPLOAD ONE TO REPLACE IT.', hint: 'UPLOAD A PNG/JPG, OR PASTE A LINK. IT GETS SHRUNK TO FIT.' },
+    { k: 'shape', label: 'PICTURE SHAPE', type: 'select', options: ['circle', 'square', 'hex'], def: 'circle' },
+    { k: 'bio', label: 'SHORT BIO (OPTIONAL)', type: 'area', rows: 3, ph: 'MAKES THE GEARS TURN.' },
+    { k: 'badge', label: 'BADGE TEXT (OPTIONAL)', ph: 'MAIN DEV', hint: 'THE LABEL ON THE TOP OF THE CARD. EMPTY = NONE (OR MAIN DEV IF TICKED BELOW).' },
+    { k: 'main', label: 'THIS IS THE MAIN DEV (BIGGER, GLOWING CARD)', type: 'check' },
+    { k: 'url', label: 'MAIN PROFILE LINK', ph: 'https://discord.com/users/123...' },
+    { k: 'links', label: 'MORE LINKS (OPTIONAL)', type: 'area', rows: 3, ph: 'YOUTUBE | https://youtube.com/@name\nGITHUB | https://github.com/name', hint: 'ONE PER LINE, LIKE  LABEL | https://link' }
   ];
   function parseDev(v, d) {
     if (!v.name) return 'NAME IS REQUIRED.';
-    if (!okUrl(v.url)) return 'PROFILE LINK MUST START WITH https://';
-    if (v.avatar && !okUrl(v.avatar)) return 'PICTURE LINK MUST START WITH https://';
-    d.name = v.name; d.role = v.role; d.url = v.url; d.main = v.main;
-    if (v.avatar !== (d.avatar || '')) { d.avatar = v.avatar; delete d.pfp; }
+    if (!okUrl(v.url)) return 'MAIN PROFILE LINK MUST START WITH https://';
+    const l = parseLinks(v.links); if (l.err) return l.err;
+    Object.assign(d, { name: v.name, role: v.role, bio: v.bio, badge: v.badge, shape: v.shape, main: v.main, url: v.url, links: l.list });
+    if (v.avatar) { d.avatar = v.avatar; delete d.pfp; }
+    else if (v.avatar_cleared) { delete d.avatar; delete d.pfp; }
   }
   function devsTab() {
     const wrap = h('div', {});
     wrap.append(addBar('+ ADD DEV', () => {
       editing = () => editor('ADD A DEV', devFields, {}, v => { const d = {}; const err = parseDev(v, d); if (err) return err; data.devs.push(d); });
       render();
-    }), list(data.devs, d => d.name + (d.main ? '  (MAIN DEV)' : ''), d => d.role, d => {
-      editing = () => editor('EDIT: ' + d.name, devFields, d, v => parseDev(v, d));
+    }), list(data.devs, d => d.name + (d.main ? '  (MAIN DEV)' : ''), d => d.role + (d.links && d.links.length ? '  |  ' + (d.links.length + 1) + ' LINKS' : ''), d => {
+      editing = () => editor('EDIT: ' + d.name, devFields, { ...d, links: linksText(d.links), avatar: d.avatar || '' }, v => parseDev(v, d));
       render();
-    }));
+    }, d => d.avatar));
     return wrap;
   }
 
@@ -204,7 +270,7 @@
   function parseSoc(v, s) {
     if (!v.label) return 'BUTTON TEXT IS REQUIRED.';
     if (!okUrl(v.url)) return 'LINK MUST START WITH https://';
-    s.label = v.label; s.handle = v.handle; s.url = v.url;
+    Object.assign(s, { label: v.label, handle: v.handle, url: v.url });
   }
   function socialsTab() {
     const wrap = h('div', {});
@@ -218,36 +284,69 @@
     return wrap;
   }
 
+  /* ---------- site text ---------- */
+  function siteTab() {
+    const fields = [
+      { k: 'title', label: 'MAIN MENU TITLE', ph: 'HOLLOWBLADE INDUSTRIES' },
+      { k: 'soon', label: 'GAMES PAGE HEADING', ph: 'MORE GAMES SOON' },
+      { k: 'ticker', label: 'SCROLLING TICKER TEXT', type: 'area', rows: 3, hint: 'THE TEXT THAT SCROLLS ACROSS THE GAMES PAGE.' }
+    ];
+    return editor('SITE TEXT', fields, data.site, v => {
+      if (!v.title) return 'MENU TITLE IS REQUIRED.';
+      Object.assign(data.site, v);
+    });
+  }
+
   /* ---------- publish ---------- */
-  const fileText = () => '// Site content (games, devs, socials). The mod panel can edit and publish this file.\nwindow.SITE_DATA = ' + JSON.stringify(data, null, 2) + ';\n';
+  const fileText = d => '// Site content (games, devs, socials). The mod panel can edit and publish this file.\nwindow.SITE_DATA = ' + JSON.stringify(d, null, 2) + ';\n';
+  const b64 = bytes => { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin); };
+
+  function explain(status) {
+    if (status === 401) return 'GITHUB SAID 401: THE TOKEN WAS REJECTED. IT IS WRONG OR EXPIRED. MAKE A NEW ONE.';
+    if (status === 403 || status === 404) return 'GITHUB SAID ' + status + ': THIS TOKEN IS NOT ALLOWED TO EDIT THAT REPO. CHECK THE REPO NAME, THAT THE TOKEN WAS MADE BY THE ACCOUNT THAT OWNS IT (OR USE A CLASSIC TOKEN WITH THE public_repo BOX TICKED), AND THAT CONTENTS IS SET TO READ AND WRITE.';
+    return 'GITHUB SAID ' + status;
+  }
+
   function publishTab() {
     const repo = h('input', { type: 'text', value: DEFAULT_REPO, autocomplete: 'off', spellcheck: 'false', id: 'pub-repo' });
-    const token = h('input', { type: 'password', autocomplete: 'off', placeholder: 'github_pat_...', id: 'pub-token' });
+    const token = h('input', { type: 'password', autocomplete: 'off', placeholder: 'github_pat_... or ghp_...', id: 'pub-token' });
     const msg = h('p', { class: 'adm-msg' });
     const go = btn('PUBLISH TO GITHUB', async () => {
       const r = repo.value.trim(), t = token.value.trim();
       if (!/^[\w.-]+\/[\w.-]+$/.test(r)) { msg.textContent = 'REPO MUST LOOK LIKE  owner/name'; return HB.fx.err(); }
       if (!t) { msg.textContent = 'PASTE YOUR GITHUB TOKEN FIRST.'; return HB.fx.err(); }
-      msg.textContent = 'PUBLISHING...';
-      try {
-        const api = 'https://api.github.com/repos/' + r + '/contents/site-data.js';
-        const hdr = { Authorization: 'Bearer ' + t, Accept: 'application/vnd.github+json' };
-        let sha;
+      msg.className = 'adm-msg ok'; msg.textContent = 'PUBLISHING...';
+      const hdr = { Authorization: 'Bearer ' + t, Accept: 'application/vnd.github+json' };
+      const put = async (path, text64, message) => {
+        const api = 'https://api.github.com/repos/' + r + '/contents/' + path;
+        let sh;
         const cur = await fetch(api, { headers: hdr });
-        if (cur.ok) sha = (await cur.json()).sha;
-        else if (cur.status !== 404) throw new Error('GITHUB SAID ' + cur.status + (cur.status === 401 ? ' (TOKEN REJECTED)' : ''));
-        const bytes = new TextEncoder().encode(fileText());
-        let bin = ''; bytes.forEach(b => { bin += String.fromCharCode(b); });
-        const res = await fetch(api, {
-          method: 'PUT', headers: { ...hdr, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'Update site content via mod panel', content: btoa(bin), sha })
-        });
-        if (!res.ok) throw new Error('GITHUB SAID ' + res.status + (res.status === 403 || res.status === 404 ? ' (TOKEN NEEDS CONTENTS: READ & WRITE ON THIS REPO)' : ''));
+        if (cur.ok) sh = (await cur.json()).sha; else if (cur.status !== 404) throw new Error(explain(cur.status));
+        const res = await fetch(api, { method: 'PUT', headers: { ...hdr, 'Content-Type': 'application/json' }, body: JSON.stringify({ message, content: text64, sha: sh }) });
+        if (!res.ok) throw new Error(explain(res.status));
+      };
+      try {
+        const pub = JSON.parse(JSON.stringify(data));
+        // upload each new picture as its own file, then point the data at it
+        const pics = [];
+        pub.games.forEach(g => { if (isData(g.icon)) pics.push([g, 'icon', g.id + '-icon']); });
+        pub.devs.forEach(d => { if (isData(d.avatar)) pics.push([d, 'avatar', slug(d.name) + '-pic']); });
+        for (const [obj, key, base] of pics) {
+          const m = /^data:image\/(png|jpeg|webp|gif);base64,(.+)$/.exec(obj[key]);
+          if (!m) throw new Error('A PICTURE IS NOT IN A SUPPORTED FORMAT');
+          const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+          const path = 'uploads/' + base + '-' + (await sha(m[2])).slice(0, 8) + '.' + ext;
+          msg.textContent = 'UPLOADING ' + path + '...';
+          await put(path, m[2], 'Upload picture via mod panel');
+          obj[key] = path;
+        }
+        msg.textContent = 'SAVING SITE CONTENT...';
+        await put('site-data.js', b64(new TextEncoder().encode(fileText(pub))), 'Update site content via mod panel');
         token.value = '';
-        try { localStorage.removeItem('hb-draft'); } catch (e) {}
-        msg.textContent = 'PUBLISHED! THE LIVE SITE UPDATES IN ABOUT A MINUTE.';
+        data = pub; try { localStorage.removeItem('hb-draft'); } catch (e) {}
+        msg.textContent = 'PUBLISHED! THE LIVE SITE UPDATES IN ABOUT A MINUTE (HARD-REFRESH WITH CTRL+SHIFT+R).';
         HB.fx.ach(); HB.toast('PUBLISHED');
-      } catch (e) { msg.textContent = 'FAILED: ' + e.message; HB.fx.err(); }
+      } catch (e) { msg.className = 'adm-msg'; msg.textContent = 'FAILED: ' + e.message; HB.fx.err(); }
     }, 'big');
     return h('div', { class: 'adm-form' },
       h('h4', {}, 'YOUR EDITS ARE A DRAFT'),
@@ -255,12 +354,12 @@
       h('div', { class: 'adm-btns' },
         btn('RELOAD TO PREVIEW DRAFT', () => location.reload()),
         btn('DOWNLOAD site-data.js', () => {
-          const a = h('a', { href: URL.createObjectURL(new Blob([fileText()], { type: 'text/javascript' })), download: 'site-data.js' });
+          const a = h('a', { href: URL.createObjectURL(new Blob([fileText(data)], { type: 'text/javascript' })), download: 'site-data.js' });
           document.body.appendChild(a); a.click(); a.remove();
         }),
         btn('DISCARD DRAFT', () => { try { localStorage.removeItem('hb-draft'); } catch (e) {} location.reload(); })),
       h('h4', {}, 'PUBLISH'),
-      h('p', { class: 'adm-note' }, 'CREATE A FINE-GRAINED GITHUB TOKEN FOR THIS ONE REPO WITH "CONTENTS: READ AND WRITE". IT IS ONLY USED RIGHT NOW TO TALK TO GITHUB AND IS NEVER SAVED.'),
+      h('p', { class: 'adm-note' }, 'USE A GITHUB TOKEN THAT CAN EDIT THIS REPO. IT IS ONLY USED RIGHT NOW TO TALK TO GITHUB AND IS NEVER SAVED. UPLOADED PICTURES ARE ADDED TO AN uploads FOLDER IN THE REPO.'),
       h('label', { for: 'pub-repo' }, 'REPO', repo),
       h('label', { for: 'pub-token' }, 'GITHUB TOKEN', token),
       msg, h('div', { class: 'adm-btns' }, go));
