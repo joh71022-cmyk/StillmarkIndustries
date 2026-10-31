@@ -62,12 +62,12 @@
     }
 
     /* ----- building blocks ----- */
-    function voice(dest, type, f0, f1, t, dur, v, lp) {
+    function voice(dest, type, f0, f1, t, dur, v, lp, att) {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = type; o.frequency.setValueAtTime(f0, t);
       if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
       g.gain.setValueAtTime(.0001, t);
-      g.gain.linearRampToValueAtTime(v, t + Math.min(.01, dur / 4));
+      g.gain.linearRampToValueAtTime(v, t + (att ? Math.min(att, dur * .6) : Math.min(.01, dur / 4)));
       g.gain.exponentialRampToValueAtTime(.0001, t + dur);
       if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; o.connect(f); f.connect(g); } else o.connect(g);
       g.connect(dest); o.start(t); o.stop(t + dur + .03);
@@ -154,6 +154,25 @@
       if (rnd(s * 3) > .6) hit(musicBus, t + rnd(s) * STEP, .015, .016, 'highpass', 6000, 6000, .5);   // vinyl crackle
     }
 
+    /* ===== CALM: soft, smooth technology ambient (every page except the menu) - 90 BPM ===== */
+    const CM = { roots: [0, 8, 3, 10], chords: [[0, 3, 7, 14], [0, 4, 7, 11], [0, 4, 7, 11], [0, 4, 7, 9]], arp: [0, 1, 2, 3, 2, 1, 2, 1], pent: [0, 3, 5, 7, 10] };
+    function playCalm(s, t) {
+      const bar = (s >> 4) & 15, i = s & 15, root = CM.roots[bar & 3], chord = CM.chords[bar & 3];
+      if (i === 0) {                                           // airy pad that swells in, plus a soft low note
+        chord.forEach((n, k) => { const f = mtof(24 + root + n) * (k % 2 ? 1.002 : .998); voice(seq.padBus, 'sine', f, f, t, STEP * 16, .034, 1400, STEP * 5); });
+        const bf = mtof(12 + root); voice(seq.padBus, 'sine', bf, bf, t, STEP * 16, .06, 0, STEP * 3);
+      }
+      if (i === 0 || i === 8) voice(musicBus, 'sine', 90, 62, t, .18, .09);            // a soft heartbeat-like pulse
+      if (i % 4 === 0) hit(musicBus, t, .015, .012, 'highpass', 9000, 9000, .5);       // quiet clock tick
+      if (bar >= 4 && i % 2 === 0) {                           // slow plucked sequence with a faint echo
+        const tone = chord[CM.arp[i >> 1]] + (bar >= 12 ? 12 : 0), f = mtof(36 + root + tone);
+        voice(musicBus, 'sine', f, f, t, STEP * 3, .04, 1800);
+        voice(musicBus, 'triangle', f, f, t, STEP * 2, .01, 2400);
+        voice(musicBus, 'sine', f, f, t + STEP * 3, STEP * 3, .013, 1500);
+      }
+      if (bar >= 8 && rnd(s + 7) > .9) { const pf = mtof(48 + CM.pent[Math.floor(rnd(s + 31) * 5)]); voice(musicBus, 'sine', pf, pf, t, .3, .018); }   // faint digital shimmer
+    }
+
     /* ===== CYBER: dark, driving, distorted (switch to it from the terminal) - 126 BPM ===== */
     const CY = { roots: [0, 0, 8, 7], chords: [[0, 3, 7], [0, 3, 7], [0, 4, 7], [0, 4, 7]],
       bass: [0, 0, 12, 0, 0, 12, 0, 0, 0, 0, 12, 0, 0, 12, 7, 12], hook: [0, 0, 3, 0, -1, 0, -4, -5], shift: [0, 0, -4, -5] };
@@ -187,12 +206,13 @@
 
     const TRACKS = {
       tech:  { bpm: 120, level: 1,   play: playTech,  resume: (bar, t, n) => drone(TC.roots[bar & 3], TC.chords[bar & 3], t, STEP * n, .034, 900, 'triangle') },
+      calm:  { bpm: 90,  level: .45, play: playCalm,  resume: null },
       chill: { bpm: 78,  level: .5,  play: playChill, resume: null },
       cyber: { bpm: 126, level: 1,   play: playCyber, resume: (bar, t, n) => drone(CY.roots[bar & 3], CY.chords[bar & 3], t, STEP * n, .03, 500, 'sawtooth') }
     };
     let override = '';
     try { const v = localStorage.getItem('hb-mood'); if (v && TRACKS[v]) override = v; } catch (e) {}
-    const autoMood = () => (document.body.classList.contains('menu') ? 'tech' : 'chill');
+    const autoMood = () => (document.body.classList.contains('menu') ? 'tech' : 'calm');
     const mood = () => override || autoMood();
     const level = () => (T ? T.level : 1);
 
@@ -243,7 +263,7 @@
       musicBus.gain.linearRampToValueAtTime(0, t + .6);
       setTimeout(() => { try { s.parts.forEach(p => p.disconnect()); } catch (e) {} }, 2000);
     }
-    function setMood(m) {                                      // 'tech', 'chill', 'cyber', or 'auto' (page decides)
+    function setMood(m) {                                      // 'tech', 'calm', 'chill', 'cyber', or 'auto' (page decides)
       override = TRACKS[m] ? m : '';
       try { if (override) localStorage.setItem('hb-mood', override); else localStorage.removeItem('hb-mood'); } catch (e) {}
       if (seq && live()) { stopMusic(); setTimeout(() => { if (musicOn) startMusic(); }, 650); }
