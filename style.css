@@ -665,8 +665,7 @@ img, video, canvas, svg { max-width:100%; }
 
 /* phones */
 @media (max-width:640px) {
-  body { padding-bottom:calc(150px + env(safe-area-inset-bottom)); }
-  body.menu, body:has(.enter) { padding-bottom:0; }
+  body.games, body.gamepage { padding-bottom:calc(150px + env(safe-area-inset-bottom)); }
   .hud { top:auto; right:8px; left:8px; bottom:calc(40px + env(safe-area-inset-bottom)); justify-content:center; flex-wrap:wrap; gap:6px; }
   .hud .acct-hud { display:contents; }
   .hud button { font-size:.58rem; letter-spacing:.1em; padding:8px 9px; }
@@ -703,7 +702,7 @@ img, video, canvas, svg { max-width:100%; }
 
 /* phones turned sideways: very little height */
 @media (max-height:480px) and (orientation:landscape) {
-  body { padding-bottom:0; }
+  body.games, body.gamepage { padding-bottom:24px; }
   .hud { position:fixed; top:6px; bottom:auto; left:auto; right:max(8px, env(safe-area-inset-right)); flex-wrap:nowrap; }
   .hud button { min-height:36px; }
   .foot { display:none; }
