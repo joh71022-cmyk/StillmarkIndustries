@@ -109,6 +109,10 @@
       whoosh: () => { noise(.65, .55, 250, 5000, 1.2); osc('sawtooth', 90, 700, .55, .14); },
       clank: () => { [310, 457, 629, 811].forEach((f, i) => osc('square', f, f * .7, .35, .1, i * .004)); noise(.12, .6, 5200, 1400, 6); },
       deny: () => { osc('square', 180, 170, .12, .25); osc('square', 140, 130, .18, .25, .14); },
+      coin: n => osc('square', 500 + n * 60, 900 + n * 60, .09, .16),
+      buy: () => [440, 660, 880].forEach((f, i) => osc('square', f, f * 1.5, .12, .16, i * .06)),
+      ach: () => [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => osc('triangle', f, f, .3, .22, i * .09)),
+      err: () => osc('sawtooth', 200, 80, .25, .2),
       discord: () => [392, 523, 659, 784, 1047, 1319].forEach((f, i) => osc('triangle', f, f, .25, .2, i * .06)),
       siren: () => { for (let i = 0; i < 4; i++) { osc('sawtooth', 400, 1200, .25, .15, i * .5); osc('sawtooth', 1200, 400, .25, .15, i * .5 + .25); } }
     };
@@ -255,7 +259,7 @@
   /* ---------- page transitions ---------- */
   const wipe = $('.wipe');
   let leaving = false;
-  const reveal = () => requestAnimationFrame(() => requestAnimationFrame(() => wipe.classList.remove('on')));
+  const reveal = () => { requestAnimationFrame(() => requestAnimationFrame(() => wipe.classList.remove('on'))); setTimeout(() => wipe.classList.remove('on'), 500); };
   reveal();
   addEventListener('pageshow', e => { if (e.persisted) { leaving = false; reveal(); } });
   function go(url) {
@@ -280,14 +284,17 @@
 
   /* ---------- keyboard ---------- */
   addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input, textarea')) return;
     keys = [...keys, e.key].slice(-10);
     if (keys.join(' ') === KONAMI || keys.slice(-6).join('').toLowerCase() === 'hollow') { keys = []; toggleOverdrive(); }
     if (e.repeat) return;
     if (finishBoot()) { e.preventDefault(); return; }
+    if ($('.term-ov:not([hidden])')) return;
     const page = body.classList;
-    if (page.contains('menu') && e.key === 'Enter') { e.preventDefault(); sfx('click'); go('games.html'); }
-    if (page.contains('games') && (e.key === 'Escape' || e.key === 'Backspace')) go('index.html');
-    if (page.contains('gamepage') && (e.key === 'Escape' || e.key === 'Backspace')) go('games.html');
+    const focused = document.activeElement && document.activeElement.closest ? document.activeElement.closest('a, button') : null;
+    if (page.contains('menu') && e.key === 'Enter' && !focused) { e.preventDefault(); sfx('click'); go('games.html'); }
+    if (page.contains('games') && e.key === 'Escape') go('index.html');
+    if (page.contains('gamepage') && e.key === 'Escape') go(page.contains('workshop') ? 'index.html' : 'games.html');
     if (e.key === 'm' || e.key === 'M') { Snd.toggleMusic(); paintHud(); }
   });
 
@@ -380,4 +387,7 @@
     if (!reduce) requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+
+  /* ---------- shared toolkit for the other scripts ---------- */
+  window.HB = { sfx, fx: Snd.fx, toast, shake, boost, go, burst, scramble, toggleOverdrive, Snd, paintHud, reduce };
 })();
