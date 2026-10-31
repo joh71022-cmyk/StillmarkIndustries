@@ -5,6 +5,12 @@
   // only a one-way hash lives here, never the passcode itself
   const HASH = 'a2e2d932cf3c0de3835bd597a8f45f48247e4789c89e233e6ad72bd0c9fc03eb';
   const DEFAULT_REPO = 'joh71022-cmyk/HOLLOWBLADEINDUSTRIES';
+  // address of the publish service (see worker/README.md). Not secret. Empty = ask for a token instead.
+  const PUBLISH_URL = '';
+  const pubUrl = () => {
+    if (PUBLISH_URL) return PUBLISH_URL;
+    try { return localStorage.getItem('hb-pub-url') || ''; } catch (e) { return ''; }
+  };
 
   let fails = 0, lockUntil = 0;
   const sha = async s => {
@@ -312,7 +318,57 @@
     return msg + (why ? ' GITHUB SAYS: "' + why + '"' : '');
   }
 
-  function publishTab() {
+  function draftButtons() {
+    return h('div', { class: 'adm-btns' },
+      btn('RELOAD TO PREVIEW DRAFT', () => location.reload()),
+      btn('DOWNLOAD site-data.js', () => {
+        const a = h('a', { href: URL.createObjectURL(new Blob([fileText(data)], { type: 'text/javascript' })), download: 'site-data.js' });
+        document.body.appendChild(a); a.click(); a.remove();
+      }),
+      btn('DISCARD DRAFT', () => { try { localStorage.removeItem('hb-draft'); } catch (e) {} location.reload(); }));
+  }
+
+  const publishTab = () => (pubUrl() ? serviceTab(pubUrl()) : tokenTab());
+
+  // publish through the service: the GitHub token stays on the service as a secret
+  function serviceTab(url) {
+    const pass = h('input', { type: 'password', id: 'pub-pass', name: 'pp-' + Math.random().toString(36).slice(2), autocomplete: 'new-password', 'data-lpignore': 'true', 'data-1p-ignore': 'true' });
+    const msg = h('p', { class: 'adm-msg' });
+    const go = btn('PUBLISH', async () => {
+      const p = pass.value;
+      if (!p) { msg.className = 'adm-msg'; msg.textContent = 'TYPE THE PUBLISH PASSPHRASE FIRST.'; return HB.fx.err(); }
+      msg.className = 'adm-msg ok'; msg.textContent = 'PUBLISHING...';
+      try {
+        const pub = JSON.parse(JSON.stringify(data)), files = [], pics = [];
+        pub.games.forEach(g => { if (isData(g.icon)) pics.push([g, 'icon', g.id + '-icon']); });
+        pub.devs.forEach(d => { if (isData(d.avatar)) pics.push([d, 'avatar', slug(d.name) + '-pic']); });
+        for (const [obj, key, base] of pics) {
+          const m = /^data:image\/(png|jpeg|webp|gif);base64,(.+)$/.exec(obj[key]);
+          if (!m) throw new Error('A PICTURE IS NOT IN A SUPPORTED FORMAT');
+          const path = 'uploads/' + base + '-' + (await sha(m[2])).slice(0, 8) + '.' + (m[1] === 'jpeg' ? 'jpg' : m[1]);
+          files.push({ path, content: m[2] }); obj[key] = path;
+        }
+        files.push({ path: 'site-data.js', content: b64(new TextEncoder().encode(fileText(pub))) });
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passphrase: p, files, message: 'Update site content via mod panel' }) });
+        let j = {}; try { j = await res.json(); } catch (e) {}
+        if (!res.ok || !j.ok) throw new Error(j.error || 'THE PUBLISH SERVICE SAID ' + res.status);
+        pass.value = ''; data = pub; try { localStorage.removeItem('hb-draft'); } catch (e) {}
+        msg.textContent = 'PUBLISHED! THE LIVE SITE UPDATES IN ABOUT A MINUTE (HARD-REFRESH WITH CTRL+SHIFT+R).';
+        HB.fx.ach(); HB.toast('PUBLISHED');
+      } catch (e) { msg.className = 'adm-msg'; msg.textContent = 'FAILED: ' + e.message; HB.fx.err(); }
+    }, 'big');
+    return h('div', { class: 'adm-form' },
+      h('h4', {}, 'YOUR EDITS ARE A DRAFT'),
+      h('p', { class: 'adm-note' }, 'ONLY YOU CAN SEE THEM, IN THIS BROWSER. PUBLISH TO MAKE THEM LIVE FOR EVERYONE.'),
+      draftButtons(),
+      h('h4', {}, 'PUBLISH'),
+      h('p', { class: 'adm-note' }, 'THE GITHUB TOKEN IS KEPT SAFE ON THE PUBLISH SERVICE, NEVER IN THIS BROWSER. YOU ONLY NEED THE PUBLISH PASSPHRASE.'),
+      h('label', { for: 'pub-pass' }, 'PUBLISH PASSPHRASE', pass),
+      msg,
+      h('div', { class: 'adm-btns' }, go, PUBLISH_URL ? null : btn('STOP USING THE SERVICE', () => { try { localStorage.removeItem('hb-pub-url'); } catch (e) {} render(); })));
+  }
+
+  function tokenTab() {
     const repo = h('input', { type: 'text', value: DEFAULT_REPO, autocomplete: 'off', spellcheck: 'false', id: 'pub-repo' });
     const token = h('input', { type: 'password', name: 'gh-token-' + Math.random().toString(36).slice(2), autocomplete: 'new-password', 'data-lpignore': 'true', 'data-1p-ignore': 'true', placeholder: 'github_pat_... or ghp_...', id: 'pub-token' });
     const msg = h('p', { class: 'adm-msg' });
@@ -356,17 +412,23 @@
     return h('div', { class: 'adm-form' },
       h('h4', {}, 'YOUR EDITS ARE A DRAFT'),
       h('p', { class: 'adm-note' }, 'ONLY YOU CAN SEE THEM, IN THIS BROWSER. TO MAKE THEM LIVE FOR EVERYONE, PUBLISH THEM TO GITHUB.'),
-      h('div', { class: 'adm-btns' },
-        btn('RELOAD TO PREVIEW DRAFT', () => location.reload()),
-        btn('DOWNLOAD site-data.js', () => {
-          const a = h('a', { href: URL.createObjectURL(new Blob([fileText(data)], { type: 'text/javascript' })), download: 'site-data.js' });
-          document.body.appendChild(a); a.click(); a.remove();
-        }),
-        btn('DISCARD DRAFT', () => { try { localStorage.removeItem('hb-draft'); } catch (e) {} location.reload(); })),
+      draftButtons(),
       h('h4', {}, 'PUBLISH'),
       h('p', { class: 'adm-note' }, 'USE A GITHUB TOKEN THAT CAN EDIT THIS REPO. IT IS ONLY USED RIGHT NOW TO TALK TO GITHUB AND IS NEVER SAVED. UPLOADED PICTURES ARE ADDED TO AN uploads FOLDER IN THE REPO.'),
       h('label', { for: 'pub-repo' }, 'REPO', repo),
       h('label', { for: 'pub-token' }, 'GITHUB TOKEN (PASTE IT HERE - THE BOX SHOULD STAY DARK)', token),
-      msg, h('div', { class: 'adm-btns' }, go));
+      msg, h('div', { class: 'adm-btns' }, go),
+      h('h4', {}, 'BETTER: USE A PUBLISH SERVICE'),
+      h('p', { class: 'adm-note' }, 'IF YOU SET UP THE PUBLISH SERVICE (SEE worker/README.md IN THE REPO), PASTE ITS ADDRESS HERE. THEN NOBODY EVER NEEDS THE GITHUB TOKEN.'),
+      (() => {
+        const u = h('input', { type: 'text', placeholder: 'https://hollowblade-publish.yourname.workers.dev', autocomplete: 'off', spellcheck: 'false' });
+        const m2 = h('p', { class: 'adm-msg' });
+        return h('div', { class: 'adm-form' }, u, m2, btn('USE THIS SERVICE', () => {
+          const v = u.value.trim();
+          if (!/^https:\/\/[\w.-]+(\/\S*)?$/.test(v)) { m2.textContent = 'ADDRESS MUST START WITH https://'; return HB.fx.err(); }
+          try { localStorage.setItem('hb-pub-url', v); } catch (e) {}
+          HB.fx.buy(); render();
+        }));
+      })());
   }
 })();
