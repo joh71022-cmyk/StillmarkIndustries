@@ -125,13 +125,13 @@
       const body = el('div'); box.append(body);
       const paint = () => {
         body.textContent = '';
-        const tabs = el('div', 'cm-tabs'); [['login', 'LOG IN'], ['new', 'CREATE ACCOUNT']].forEach(([m, l]) => { const t = el('button', 'cm-tab' + (m === mode ? ' on' : ''), l); t.type = 'button'; t.addEventListener('click', () => { mode = m; paint(); }); tabs.append(t); });
+        const tabs = el('div', 'cm-tabs'); [['login', 'LOG IN'], ['new', 'CREATE ACCOUNT']].forEach(([m, l]) => { const t = el('button', 'cm-tab' + (m === mode ? ' on' : ''), l); t.type = 'button'; t.addEventListener('click', () => { mode = m; const tt = box.querySelector('.cm-mbar b'); if (tt) tt.textContent = m === 'new' ? 'CREATE AN ACCOUNT' : 'LOG IN'; paint(); }); tabs.append(t); });
         const f = el('form', 'cm-form'); f.setAttribute('novalidate', ''); const note = el('p', 'cm-note');
         const name = input('text', '', 20, 'username'), pw = input('password', '', 100, mode === 'new' ? 'new-password' : 'current-password');
         f.append(field('NAME', name), field(mode === 'new' ? 'PASSWORD (8 OR MORE CHARACTERS)' : 'PASSWORD', pw));
         let contact, early, reason;
         if (mode === 'new') {
-          contact = input('text', 'OPTIONAL, LIKE A DISCORD NAME', 60); f.append(field('HOW THE TEAM CAN REACH YOU', contact));
+          contact = input('text', 'OPTIONAL: DISCORD NAME', 60); f.append(field('HOW THE TEAM CAN REACH YOU', contact));
           early = input('checkbox'); const l = el('label', 'cm-chk'); l.append(early, document.createTextNode(' I WANT TO BE AN EARLY ACCESS TESTER')); f.append(l);
           reason = el('textarea'); reason.rows = 3; reason.maxLength = 300; reason.placeholder = 'WHY DO YOU WANT EARLY ACCESS? (THE TEAM READS EVERY REQUEST)'; reason.hidden = true; reason.setAttribute('aria-label', 'Why you want early access'); f.append(reason);
           early.addEventListener('change', () => { reason.hidden = !early.checked; if (early.checked) reason.focus(); });
@@ -172,7 +172,7 @@
       const row = el('div', 'cm-row'); row.append(prev, el('div'));
       row.lastChild.append(file, rm); paintAv();
       const bio = el('textarea'); bio.rows = 3; bio.maxLength = 200; bio.value = me.bio || ''; bio.setAttribute('aria-label', 'About me');
-      const contact = input('text', 'OPTIONAL, LIKE A DISCORD NAME', 60); contact.value = me.contact || '';
+      const contact = input('text', 'OPTIONAL: DISCORD NAME', 60); contact.value = me.contact || '';
       const st = me.early || 'none', decided = st === 'approved';
       const early = input('checkbox'); early.checked = st === 'approved' || st === 'pending'; early.disabled = decided;
       const el1 = el('label', 'cm-chk'); el1.append(early, document.createTextNode(' I WANT TO BE AN EARLY ACCESS TESTER'));
