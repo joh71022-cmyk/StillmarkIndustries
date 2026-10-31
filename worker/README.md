@@ -23,7 +23,7 @@ Friends who are mods only need the mod code. They never see the token. Change th
    | Type   | Name             | Value |
    |--------|------------------|-------|
    | Secret | `MOD_PASSCODE`   | the mod code. Make it long (see tips). It is what you type after `mod pas` |
-   | Text   | `REPO`           | `joh71022-cmyk/HOLLOWBLADEINDUSTRIES` |
+   | Text   | `REPO`           | `joh71022-cmyk/StillmarkIndustries` |
    | Text   | `ALLOWED_ORIGIN` | `https://joh71022-cmyk.github.io` |
 
 7. Deploy again if it asks. Copy the worker's address, it looks like

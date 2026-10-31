@@ -8,7 +8,7 @@
 //   GET /poll?id=.. and POST /poll/vote  - public voting for polls and ratings (no mod code; one vote per person)
 //
 // Needs:  Secret    MOD_PASSCODE   the mod code (the same thing typed after "mod pas")
-//         Variable  REPO           e.g. joh71022-cmyk/HOLLOWBLADEINDUSTRIES
+//         Variable  REPO           e.g. joh71022-cmyk/StillmarkIndustries
 //         Variable  ALLOWED_ORIGIN e.g. https://joh71022-cmyk.github.io
 //         KV binding STORE         (a free KV namespace; holds the token and the wrong-guess counter)
 // Optional: Secret  GITHUB_TOKEN   if you would rather paste the token in Cloudflare than in the panel.

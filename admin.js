@@ -4,7 +4,7 @@
   if (!HB) return;
   // only a one-way hash lives here, never the passcode itself
   const HASH = 'a2e2d932cf3c0de3835bd597a8f45f48247e4789c89e233e6ad72bd0c9fc03eb';
-  const DEFAULT_REPO = 'joh71022-cmyk/HOLLOWBLADEINDUSTRIES';
+  const DEFAULT_REPO = 'joh71022-cmyk/StillmarkIndustries';
   // address of the publish service (see worker/README.md). Not secret. Empty = ask for a token instead.
   const PUBLISH_URL = 'https://hollowblade-publish.joh71022.workers.dev';
   const pubUrl = () => {
@@ -411,7 +411,7 @@
   }
 
   // after saving to GitHub the site takes a minute or so to rebuild. Watch for our stamp so we can say when it is truly live.
-  const LIVE_BASE = /github\.io$/.test(location.hostname) ? '' : 'https://joh71022-cmyk.github.io/HOLLOWBLADEINDUSTRIES/';
+  const LIVE_BASE = /github\.io$/.test(location.hostname) ? '' : 'https://joh71022-cmyk.github.io/StillmarkIndustries/';
   async function waitLive(stamp, say) {
     const t0 = Date.now();
     while (Date.now() - t0 < 180000) {
