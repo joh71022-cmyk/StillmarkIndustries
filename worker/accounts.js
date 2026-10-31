@@ -177,10 +177,10 @@ export async function accountMod(action, body, env, reply, { clip, int }) {
     const page = int(body.page, 0, 0, 1000), q = clip(body.q, 30).replace(/[%_\\]/g, m => '\\' + m), where = [], args = [];
     if (q) { where.push("(name LIKE ? ESCAPE '\\' OR contact LIKE ? ESCAPE '\\')"); args.push('%' + q + '%', '%' + q + '%'); }
     const E = { pending: 2, approved: 1, declined: 3 };
-    if (E[body.early]) { where.push('early = ?'); args.push(E[body.early]); } else if (body.early === 'any') where.push('early > 0'); else if (body.early === 'roles') where.push("(role != '' OR dev_name != '')");
-    const rows = await db.prepare('SELECT id, name, created, early, early_reason, early_note, role, dev_name, contact, banned, av, bio, (SELECT COUNT(*) FROM posts p WHERE p.user = users.id) + (SELECT COUNT(*) FROM threads t WHERE t.user = users.id) AS posts FROM users' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created DESC LIMIT 51 OFFSET ?').bind(...args, page * 50).all();
-    const tot = await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(early = 1), 0) AS e, COALESCE(SUM(early = 2), 0) AS w FROM users').first();
-    return reply({ ok: true, users: rows.results.slice(0, 50).map(r => ({ ...r, early: EARLY[r.early] || 'none', banned: !!r.banned, av: !!r.av })), more: rows.results.length > 50, total: tot.n, early: tot.e, waiting: tot.w });
+    if (E[body.early]) { where.push('early = ?'); args.push(E[body.early]); } else if (body.early === 'any') where.push('early > 0'); else if (body.early === 'roles') where.push("(role != '' OR dev_name != '')"); else if (body.early === 'banned') where.push('banned = 1');
+    const rows = await db.prepare('SELECT id, name, created, early, early_reason, early_note, role, dev_name, contact, banned, av, bio, (SELECT COUNT(*) FROM posts p WHERE p.user = users.id) + (SELECT COUNT(*) FROM threads t WHERE t.user = users.id) AS posts FROM users' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY CASE WHEN banned = 1 THEN 4 WHEN role != \'\' OR dev_name != \'\' THEN 0 WHEN early = 2 THEN 1 WHEN early = 1 THEN 2 ELSE 3 END, created DESC LIMIT 51 OFFSET ?').bind(...args, page * 50).all();
+    const tot = await db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(early = 1), 0) AS e, COALESCE(SUM(early = 2), 0) AS w, COALESCE(SUM(early = 3), 0) AS d, COALESCE(SUM(role != '' OR dev_name != ''), 0) AS team, COALESCE(SUM(banned = 1), 0) AS b FROM users").first();
+    return reply({ ok: true, users: rows.results.slice(0, 50).map(r => ({ ...r, early: EARLY[r.early] || 'none', banned: !!r.banned, av: !!r.av })), more: rows.results.length > 50, total: tot.n, early: tot.e, waiting: tot.w, declined: tot.d, team: tot.team, banned: tot.b });
   }
   const id = int(body.id, 0, 0, 1e12);
   if (action === 'c_user_set') {

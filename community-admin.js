@@ -12,7 +12,7 @@
       const st = await call({ action: 'c_stats' });
       if (!st.ok) { root.append(h('p', { class: 'adm-note' }, st.error || 'THE COMMUNITY IS NOT SET UP YET. SEE worker/README.md (D1 DATABASE).')); return; }
       if (only) view = 'members';
-      root.append(h('p', { class: 'adm-note' }, `${st.threads} THREADS  |  ${st.posts} POSTS  |  ${st.pending} WAITING  |  ${st.hidden} HIDDEN  |  ${st.bans} BANNED  |  ${st.users} MEMBERS  |  ${st.early} IN EARLY ACCESS  |  ${st.earlyWaiting} WAITING FOR AN ANSWER`));
+      if (!only) root.append(h('p', { class: 'adm-note' }, `${st.threads} THREADS  |  ${st.posts} POSTS  |  ${st.pending} WAITING  |  ${st.hidden} HIDDEN  |  ${st.bans} BANNED  |  ${st.users} MEMBERS  |  ${st.early} IN EARLY ACCESS  |  ${st.earlyWaiting} WAITING FOR AN ANSWER`));
       const tabs = h('div', { class: 'adm-btns' });
       (only ? [] : [['recent', 'RECENT'], ['pending', 'WAITING'], ['reports', 'REPORTED'], ['hidden', 'HIDDEN'], ['staff', 'POST AS STAFF'], ['settings', 'SETTINGS'], ['bans', 'BANS']]).forEach(([v, l]) => tabs.append(btn(l + (v === view ? ' *' : ''), () => { view = v; page = 0; paint(); })));
       root.append(tabs);
@@ -48,54 +48,80 @@
       body.append(nav);
     }
 
-    // a label shown next to their posts (DEV, OWNER, ...) and, optionally, which person from the dev list they are
-    function roleEditor(u) {
-      const presets = ['', 'OWNER', 'DEV', 'WEBSITE MAKER', 'MODERATOR', 'TESTER', 'ARTIST'];
-      const pick = h('select', { 'aria-label': 'Role' }, ...presets.map(r => h('option', { value: r }, r || 'NO ROLE')), h('option', { value: '__custom' }, 'OTHER (TYPE BELOW)'));
-      const custom = h('input', { type: 'text', maxlength: 24, placeholder: 'CUSTOM ROLE NAME' });
-      if (presets.includes(u.role)) pick.value = u.role; else { pick.value = '__custom'; custom.value = u.role; }
-      const dev = h('select', { 'aria-label': 'Which developer' }, h('option', { value: '' }, 'NOT LINKED TO A DEV'), ...devs.map(d => h('option', { value: d.name }, d.name + (d.role ? '  (' + d.role + ')' : ''))));
-      if (u.dev_name && !devs.some(d => d.name === u.dev_name)) dev.append(h('option', { value: u.dev_name }, u.dev_name));
-      dev.value = u.dev_name || '';
-      pick.addEventListener('change', () => { if (pick.value === 'DEV' && !dev.value && devs.length === 1) dev.value = devs[0].name; });
-      return h('div', {}, h('p', { class: 'adm-note' }, 'THE ROLE SHOWS AS A BADGE ON THEIR COMMENTS AND FORUM POSTS. LINKING A DEV ALSO SHOWS THAT DEV NAME.'), pick, custom, dev,
-        btn('SAVE ROLE', async () => { const role = pick.value === '__custom' ? custom.value : pick.value; const x = await call({ action: 'c_user_set', id: u.id, role, devName: dev.value }); say(x.ok ? 'ROLE SAVED.' : (x.error || 'FAILED')); paint(); }));
-    }
+    /* ---------- the member list: grouped, with one-click roles and early access answers ---------- */
+    const ROLES = ['OWNER', 'DEV', 'WEBSITE MAKER', 'MODERATOR', 'TESTER', 'ARTIST'];
+    const api = String(kit.api || '').replace(/\/$/, '');
+    let searchTimer = null;
 
     async function membersView(body) {
-      const q = h('input', { type: 'text', placeholder: 'SEARCH NAME OR CONTACT', value: mq });
-      const ec = h('select', { 'aria-label': 'Filter' }, ...[['any', 'EVERYONE'], ['pending', 'EARLY ACCESS: REQUESTS WAITING'], ['approved', 'EARLY ACCESS: APPROVED'], ['declined', 'EARLY ACCESS: DENIED'], ['roles', 'PEOPLE WITH A ROLE']].map(([v, l]) => h('option', { value: v }, l))); ec.value = mearly;
-      q.addEventListener('keydown', e => { if (e.key === 'Enter') { mq = q.value.trim(); page = 0; paint(); } });
-      ec.addEventListener('change', () => { mearly = ec.value; page = 0; paint(); });
-      body.append(h('div', { class: 'adm-btns' }, q, ec));
       const r = await call({ action: 'c_users', page, q: mq, early: mearly === 'any' ? '' : mearly });
       if (!r.ok) return body.append(h('p', { class: 'adm-note' }, r.error || 'FAILED'));
-      if (!r.users.length) body.append(h('p', { class: 'adm-note' }, 'NO MEMBERS FOUND.'));
-      body.append(btn('DOWNLOAD THIS LIST (CSV)', () => {
-        const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""').replace(/^([=+\-@])/, "'$1") + '"';
-        const rows = [['name', 'contact', 'early_access', 'reason', 'joined', 'posts', 'banned'], ...r.users.map(u => [u.name, u.contact, u.early, u.early_reason, new Date(u.created * 1000).toISOString().slice(0, 10), u.posts, u.banned ? 'yes' : 'no'])];
-        const a = h('a', { href: URL.createObjectURL(new Blob([rows.map(x => x.map(esc).join(',')).join('\n')], { type: 'text/csv' })), download: 'members.csv' }); document.body.append(a); a.click(); a.remove();
-      }));
+
+      // categories with counts
+      const cats = h('div', { class: 'mem-tabs' });
+      [['any', 'EVERYONE', r.total], ['pending', 'EARLY ACCESS REQUESTS', r.waiting], ['approved', 'IN EARLY ACCESS', r.early], ['roles', 'TEAM (ROLES)', r.team], ['declined', 'DENIED', r.declined], ['banned', 'BANNED', r.banned]].forEach(([v, label, n]) => {
+        const b = h('button', { type: 'button', class: 'mem-tab' + (mearly === v ? ' on' : '') + (v === 'pending' && n ? ' hot' : '') }, label + '  ' + n);
+        b.addEventListener('click', () => { mearly = v; page = 0; paint(); }); cats.append(b);
+      });
+      const q = h('input', { type: 'search', class: 'mem-search', placeholder: 'FIND A MEMBER BY NAME', value: mq, 'aria-label': 'Search members' });
+      q.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { mq = q.value.trim(); page = 0; paint().then(() => { const n = root.querySelector('.mem-search'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }); }, 350); });
+      body.append(q, cats);
+      if (!r.users.length) body.append(h('p', { class: 'adm-note' }, mq ? 'NO ONE MATCHES THAT SEARCH.' : 'NO ONE IN THIS GROUP YET.'));
+
+      const groupOf = u => (u.banned ? 'BANNED' : (u.role || u.dev_name) ? 'TEAM' : u.early === 'pending' ? 'EARLY ACCESS REQUESTS' : u.early === 'approved' ? 'IN EARLY ACCESS' : 'MEMBERS');
+      let last = '';
       r.users.forEach(u => {
-        const act = (label, extra, ask) => btn(label, async () => { if (ask && !confirm(ask)) return; const x = await call({ action: 'c_user_set', id: u.id, ...extra }); say(x.ok ? 'DONE.' : (x.error || 'FAILED')); paint(); });
-        body.append(h('div', { class: 'adm-row' },
-          h('b', {}, u.name + (u.early === 'approved' ? '  [EARLY ACCESS]' : u.early === 'pending' ? '  [WANTS EARLY ACCESS]' : u.early === 'declined' ? '  [EARLY ACCESS DENIED]' : '') + (u.banned ? '  [BANNED]' : '')),
-          h('small', { class: 'adm-hint' }, 'JOINED ' + new Date(u.created * 1000).toISOString().slice(0, 10) + '  |  ' + u.posts + ' POSTS  |  CONTACT: ' + (u.contact || 'NONE')),
-          u.early_reason ? h('p', { class: 'adm-note' }, 'WHY: ' + u.early_reason) : null,
-          u.bio ? h('p', { class: 'adm-note' }, u.bio) : null,
-          h('details', { class: 'adm-role' }, h('summary', {}, 'ROLE: ' + (u.role || 'NONE') + (u.dev_name ? '  |  LINKED TO ' + u.dev_name : '')), roleEditor(u)),
-          h('div', { class: 'adm-btns' },
-            u.early !== 'approved' && u.early !== 'none' ? act('APPROVE EARLY ACCESS', { early: 'approved' }) : null,
-            u.early === 'pending' ? btn('DENY', async () => { const note = prompt('Optional message they will see (why it was denied):', ''); if (note === null) return; const x = await call({ action: 'c_user_set', id: u.id, early: 'declined', earlyNote: note }); say(x.ok ? 'DENIED. THEY WILL SEE IT NEXT TIME THEY OPEN THE SITE.' : (x.error || 'FAILED')); paint(); }) : null,
-            u.early === 'approved' || u.early === 'declined' ? act('RESET EARLY ACCESS', { early: 'none' }) : null,
-            act(u.banned ? 'UNBAN' : 'BAN', { banned: !u.banned }, u.banned ? '' : 'Ban ' + u.name + '? They are logged out and cannot post.'),
-            btn('NEW PASSWORD', async () => { if (!confirm('Make a new password for ' + u.name + '? Their old one stops working and they are logged out.')) return; const x = await call({ action: 'c_user_reset', id: u.id }); if (x.ok) prompt('Give this to ' + u.name + ' (it is shown only once):', x.password); else say(x.error || 'FAILED'); }),
-            btn('DELETE ACCOUNT', async () => { if (!confirm('Delete the account ' + u.name + ' for good? Their posts stay.')) return; const x = await call({ action: 'c_user_delete', id: u.id }); say(x.ok ? 'DELETED.' : (x.error || 'FAILED')); paint(); }))));
+        const g = groupOf(u);
+        if (g !== last) { body.append(h('h4', { class: 'mem-group' }, g)); last = g; }
+        body.append(memberCard(u));
       });
       const nav = h('div', { class: 'adm-btns' });
-      if (page > 0) nav.append(btn('< NEWER', () => { page--; paint(); }));
-      if (r.more) nav.append(btn('OLDER >', () => { page++; paint(); }));
+      if (page > 0) nav.append(btn('< PREVIOUS', () => { page--; paint(); }));
+      if (r.more) nav.append(btn('NEXT >', () => { page++; paint(); }));
       body.append(nav);
+    }
+
+    function memberCard(u) {
+      const set = async (extra, okMsg) => { const x = await call({ action: 'c_user_set', id: u.id, ...extra }); say(x.ok ? okMsg : (x.error || 'FAILED')); paint(); };
+      const avatar = u.av && api ? h('img', { class: 'mem-av', src: api + '/c/avatar?u=' + u.id, alt: '' }) : h('span', { class: 'mem-av ltr' }, (u.name[0] || '?').toUpperCase());
+      const chips = h('span', { class: 'mem-chips' });
+      if (u.role) chips.append(h('u', { class: 'mem-chip role' }, u.role));
+      if (u.dev_name) chips.append(h('u', { class: 'mem-chip' }, 'DEV: ' + u.dev_name));
+      if (u.early === 'approved') chips.append(h('u', { class: 'mem-chip ok' }, 'EARLY ACCESS'));
+      if (u.early === 'pending') chips.append(h('u', { class: 'mem-chip hot' }, 'WANTS EARLY ACCESS'));
+      if (u.early === 'declined') chips.append(h('u', { class: 'mem-chip' }, 'DENIED'));
+      if (u.banned) chips.append(h('u', { class: 'mem-chip bad' }, 'BANNED'));
+      const card = h('div', { class: 'mem-card' + (u.early === 'pending' ? ' hot' : '') },
+        h('div', { class: 'mem-head' }, avatar, h('div', { class: 'mem-who' }, h('b', {}, u.name), h('small', {}, 'JOINED ' + new Date(u.created * 1000).toISOString().slice(0, 10) + '  |  ' + u.posts + (u.posts === 1 ? ' POST' : ' POSTS') + (u.contact ? '  |  ' + u.contact : ''))), chips));
+      if (u.early_reason && u.early === 'pending') card.append(h('p', { class: 'mem-why' }, 'WHY: ' + u.early_reason));
+      if (u.early === 'pending') card.append(h('div', { class: 'adm-btns' },
+        btn('ACCEPT', () => set({ early: 'approved' }, 'ACCEPTED INTO EARLY ACCESS.'), 'big'),
+        btn('DENY', () => { const note = prompt('Optional message they will see (why it was denied):', ''); if (note !== null) set({ early: 'declined', earlyNote: note }, 'DENIED. THEY WILL SEE IT NEXT TIME THEY OPEN THE SITE.'); })));
+
+      // everything else is behind one click
+      const more = h('details', { class: 'mem-more' }, h('summary', {}, 'ROLE AND MORE'));
+      const row = (label, ...kids) => h('div', { class: 'mem-row' }, h('small', {}, label), h('div', { class: 'mem-pick' }, ...kids));
+      const chip = (label, on, fn) => { const c = h('button', { type: 'button', class: 'mem-chipbtn' + (on ? ' on' : '') }, label); c.addEventListener('click', fn); return c; };
+      const customRole = !ROLES.includes(u.role) && u.role;
+      more.append(row('GIVE THEM A ROLE (SHOWN ON THEIR POSTS)',
+        chip('NONE', !u.role, () => set({ role: '' }, 'ROLE REMOVED.')),
+        ...ROLES.map(r => chip(r, u.role === r, () => set({ role: r }, r + ' GIVEN TO ' + u.name.toUpperCase() + '.'))),
+        chip(customRole ? u.role : 'OTHER...', !!customRole, () => { const v = prompt('Type the role name (24 letters at most):', u.role || ''); if (v !== null) set({ role: v }, 'ROLE SAVED.'); })));
+      if (devs.length) more.append(row('WHICH DEV IS THIS PERSON? (OPTIONAL)',
+        chip('NOT A DEV', !u.dev_name, () => set({ devName: '' }, 'DEV LINK REMOVED.')),
+        ...devs.map(d => chip(d.name, u.dev_name === d.name, () => set({ devName: d.name, ...(u.role ? {} : { role: 'DEV' }) }, 'LINKED TO ' + d.name.toUpperCase() + '.')))));
+      more.append(row('EARLY ACCESS',
+        chip('NO', u.early === 'none', () => set({ early: 'none' }, 'EARLY ACCESS CLEARED.')),
+        chip('IN', u.early === 'approved', () => set({ early: 'approved' }, 'ACCEPTED INTO EARLY ACCESS.')),
+        chip('DENIED', u.early === 'declined', () => { const note = prompt('Optional message they will see:', ''); if (note !== null) set({ early: 'declined', earlyNote: note }, 'DENIED.'); })));
+      if (u.early_reason && u.early !== 'pending') more.append(h('p', { class: 'mem-why' }, 'THEIR REASON: ' + u.early_reason));
+      if (u.bio) more.append(h('p', { class: 'mem-why' }, 'ABOUT: ' + u.bio));
+      more.append(h('div', { class: 'adm-btns' },
+        btn(u.banned ? 'UNBAN' : 'BAN', () => { if (u.banned || confirm('Ban ' + u.name + '? They are logged out and cannot post.')) set({ banned: !u.banned }, u.banned ? 'UNBANNED.' : 'BANNED.'); }),
+        btn('NEW PASSWORD', async () => { if (!confirm('Make a new password for ' + u.name + '? Their old one stops working and they are logged out.')) return; const x = await call({ action: 'c_user_reset', id: u.id }); if (x.ok) prompt('Give this to ' + u.name + ' (it is shown only once):', x.password); else say(x.error || 'FAILED'); }),
+        btn('DELETE ACCOUNT', async () => { if (!confirm('Delete the account ' + u.name + ' for good? Their posts stay.')) return; const x = await call({ action: 'c_user_delete', id: u.id }); say(x.ok ? 'DELETED.' : (x.error || 'FAILED')); paint(); })));
+      card.append(more);
+      return card;
     }
 
     function staffView(body) {

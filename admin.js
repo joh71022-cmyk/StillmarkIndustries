@@ -478,7 +478,7 @@
   function communityTab(only) {
     const box = h('div', {}, h('p', { class: 'adm-note' }, 'LOADING...'));
     if (!pubUrl()) { box.textContent = ''; box.append(h('p', { class: 'adm-note' }, 'SET UP THE PUBLISH SERVICE FIRST (PUBLISH TAB).')); return box; }
-    const go = () => { box.textContent = ''; box.append(window.HBCommAdmin({ h, btn, call: callService, status, only: typeof only === 'string' ? only : '', devs: (data.devs || []).map(d => ({ name: d.name, role: d.role })) })); };
+    const go = () => { box.textContent = ''; box.append(window.HBCommAdmin({ h, btn, call: callService, status, only: typeof only === 'string' ? only : '', api: pubUrl(), devs: (data.devs || []).map(d => ({ name: d.name, role: d.role })) })); };
     if (window.HBCommAdmin) go();
     else { const s = document.createElement('script'); s.src = 'community-admin.js?v=' + (window.HB_VER || '1'); s.onload = go; s.onerror = () => { box.textContent = 'COULD NOT LOAD THE COMMUNITY TOOLS.'; }; document.head.append(s); }
     return box;

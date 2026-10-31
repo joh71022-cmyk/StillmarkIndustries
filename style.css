@@ -611,3 +611,23 @@ body.no-scan .scan { display:none; } body.no-vig .vignette { display:none; } bod
 .hud .acct-me{padding:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:50%;color:#fff}
 .hud .acct-me img{width:100%;height:100%;object-fit:cover;display:block}
 .hud .acct-me svg{display:block}
+
+/* the member list in the mod panel */
+.mem-search{width:100%;box-sizing:border-box;background:#000;color:#fff;border:1px solid #fff6;font:inherit;padding:9px;margin:0 0 8px}
+.mem-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+.mem-tab{background:#000;color:#fff;border:1px solid #fff5;font:inherit;font-size:.7em;letter-spacing:.06em;padding:6px 10px;cursor:pointer}
+.mem-tab.on{background:#fff;color:#000}.mem-tab.hot{border-color:#ffd166;color:#ffd166}.mem-tab.hot.on{color:#000;background:#ffd166}
+.mem-group{margin:16px 0 6px;letter-spacing:.14em;border-bottom:1px solid #fff4;padding-bottom:4px;opacity:.85}
+.mem-card{border:1px solid #fff3;background:#0007;padding:10px;margin:0 0 8px}.mem-card.hot{border-color:#ffd166}
+.mem-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mem-av{width:38px;height:38px;object-fit:cover;border:1px solid #fff6;flex:none;display:flex;align-items:center;justify-content:center;background:#111}
+.mem-who{flex:1;min-width:140px}.mem-who b{display:block}.mem-who small{opacity:.6}
+.mem-chips{display:flex;flex-wrap:wrap;gap:4px}
+.mem-chip{text-decoration:none;font-size:.7em;letter-spacing:.06em;padding:2px 7px;background:#333;color:#fff}
+.mem-chip.role{background:#fff;color:#000}.mem-chip.ok{background:#2d7a46}.mem-chip.hot{background:#ffd166;color:#000}.mem-chip.bad{background:#a22}
+.mem-why{margin:8px 0 0;white-space:pre-wrap;font-family:system-ui,sans-serif;opacity:.9}
+.mem-more{margin-top:8px}.mem-more summary{cursor:pointer;opacity:.7;font-size:.8em;letter-spacing:.08em}
+.mem-row{margin:10px 0}.mem-row small{display:block;opacity:.6;margin-bottom:4px}
+.mem-pick{display:flex;flex-wrap:wrap;gap:6px}
+.mem-chipbtn{background:#000;color:#fff;border:1px solid #fff5;font:inherit;font-size:.75em;padding:6px 10px;cursor:pointer}
+.mem-chipbtn:hover{border-color:#fff}.mem-chipbtn.on{background:#fff;color:#000}
