@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvw3kgyp
+// stamp: mvwaplyv
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -107,39 +107,47 @@ window.SITE_DATA = {
   "devs": [
     {
       "name": "UnknownService",
-      "role": "CODER & DESIGNER",
+      "role": "///CODER///DESIGNER///",
       "bio": "",
       "badge": "",
       "url": "https://discord.com/users/947423539626127373",
       "main": false,
       "shape": "circle",
       "avatar": "https://cdn.discordapp.com/avatars/947423539626127373/a_eef0beae04700c6ac78e13bbf43191b1.webp?size=128&animated=true",
-      "links": [],
-      "pfp": null
+      "links": []
     },
     {
       "name": "TheCelticBhoys",
-      "role": "LEAD DEVELOPER",
+      "role": "///LEAD DEVELOPER///",
       "bio": "",
       "badge": "",
       "url": "https://discord.com/users/469916668651372556",
       "main": true,
       "shape": "circle",
       "avatar": "https://cdn.discordapp.com/avatars/469916668651372556/c6739b44ae8b016e7950b608f897bc30.webp?size=1024",
-      "links": [],
-      "pfp": null
+      "links": []
     },
     {
       "name": "JIPJIP",
-      "role": "IDEAS PERSON",
+      "role": "///IDEAS PERSON///",
       "bio": "",
       "badge": "",
       "url": "https://discord.com/users/865600698761609216",
       "main": false,
       "shape": "circle",
       "avatar": "https://cdn.discordapp.com/avatars/865600698761609216/2fb94f18787f0697c67e118cc6f0921c.webp?size=128",
+      "links": []
+    },
+    {
+      "name": "snowfy",
+      "role": "///mod///tester///helper///",
+      "bio": "",
+      "badge": "",
+      "shape": "circle",
+      "main": false,
+      "url": "https://discord.com/users/1399079638311112869",
       "links": [],
-      "pfp": null
+      "avatar": "https://cdn.discordapp.com/avatars/1399079638311112869/8c71255eb88eb1d859f58560caa52df1.webp?size=1024"
     }
   ],
   "socials": [
