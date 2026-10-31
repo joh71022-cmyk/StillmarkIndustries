@@ -89,123 +89,164 @@
     const osc = (type, f0, f1, dur, v, at = 0, lp = 0) => { if (sfxOn && running()) voice(sfxBus, type, f0, f1, ctx.currentTime + at, dur, v, lp); };
     const noise = (dur, v, f0, f1, q = 1, at = 0, ftype = 'bandpass') => { if (sfxOn && running()) hit(sfxBus, ctx.currentTime + at, dur, v, ftype, f0, f1, q); };
 
-    /* ----- the track: an original dark cyberpunk loop, 126 BPM, A minor with a tense E major turnaround ----- */
-    const BPM = 126, STEP = 60 / BPM / 4;            // one sixteenth note
-    const ROOTS = [0, 0, 8, 7];                       // Am  Am  F  E   (semitones above A)
-    const CHORDS = [[0, 3, 7], [0, 3, 7], [0, 4, 7], [0, 4, 7]];
-    const BASS = [0, 0, 12, 0, 0, 12, 0, 0, 0, 0, 12, 0, 0, 12, 7, 12];   // rolling sixteenths with octave jumps
-    const HOOK = [0, 0, 3, 0, -1, 0, -4, -5];         // lead riff, one note per eighth (0 = A4)
-    const HOOK_SHIFT = [0, 0, -4, -5];                // the riff follows the chords
-    const mtof = n => 55 * Math.pow(2, n / 12);      // 55 Hz = A1
+    /* ----- three original tracks. The page picks one: menu = tech, every other page = chill. ----- */
+    const mtof = n => 55 * Math.pow(2, n / 12);                                      // 55 Hz = A1
+    const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };   // same "random" every loop
     const dist = k => { const n = 512, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); } return c; };
     const duck = (g, t, depth, rel) => { g.gain.setValueAtTime(depth, t); g.gain.linearRampToValueAtTime(1, t + rel); };
+    let T = null, STEP = .125;                         // the track that is playing, and the length of one sixteenth note
+
+    function drone(root, chord, t, dur, v, lp, type) { // a low held note pair under the music
+      [chord[0], chord[2]].forEach((n, k) => {
+        const f = mtof(12 + root + n) * (k ? 1.003 : .997);
+        voice(seq.padBus, type, f, f, t, dur, v, lp);
+      });
+    }
+
+    /* ===== TECH: clean and digital, builds like a loading bar (menu) - 120 BPM ===== */
+    const TC = { roots: [0, 8, 3, 10], chords: [[0, 3, 7], [0, 4, 7], [0, 4, 7], [0, 4, 7]], arp: [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 2, 1, 0, 1], pent: [0, 3, 5, 7, 10] };
+    function playTech(s, t) {
+      const bar = (s >> 4) & 15, i = s & 15, root = TC.roots[bar & 3], chord = TC.chords[bar & 3];
+      if (i === 0) drone(root, chord, t, STEP * 16, .034, 900, 'triangle');
+      // plucked arpeggio that gets brighter every bar, like progress filling up
+      const idx = TC.arp[i], f = mtof(24 + root + (idx === 3 ? chord[0] + 12 : chord[idx]));
+      voice(musicBus, 'triangle', f, f, t, STEP * 1.5, bar < 2 ? .05 : .06, 900 + Math.min(bar, 10) * 330);
+      if (bar >= 2 && i % 2 === 0) voice(musicBus, 'sine', f * 2, f * 2, t, STEP * .9, .016);
+      // little digital pings
+      if (rnd(s) > .86) { const pf = mtof(48 + TC.pent[Math.floor(rnd(s + 99) * 5)]); voice(musicBus, 'sine', pf, pf, t, .22, .028); }
+      if (bar % 4 === 3 && i === 0) hit(musicBus, t, STEP * 16, .035, 'bandpass', 500, 5200, 1);   // a rising sweep every four bars
+      if (bar >= 4) {                                          // the beat arrives
+        if (i % 4 === 0) { voice(musicBus, 'sine', 140, 48, t, .2, .36); duck(seq.bassBus, t, .35, .12); duck(seq.padBus, t, .5, .15); }
+        if (i % 2 === 1) hit(musicBus, t, .03, .018, 'highpass', 9000, 9000, .5);
+        if (i === 0 || i === 6 || i === 10) { const bf = mtof(12 + root); voice(seq.bassBus, 'sine', bf, bf, t, STEP * 2.3, .3); voice(seq.bassBus, 'triangle', bf, bf, t, STEP * 2.3, .08, 600); }
+      }
+      if (bar >= 8 && (i === 4 || i === 12)) hit(musicBus, t, .12, .09, 'bandpass', 2000, 1500, .8);       // soft clap
+      if (bar >= 12 && i % 4 === 0) {                          // bell melody over the final part
+        const bf = mtof(36 + root + chord[[0, 1, 2, 1][i >> 2]]);
+        voice(musicBus, 'sine', bf, bf, t, STEP * 4, .05); voice(musicBus, 'sine', bf * 2.01, bf * 2.01, t, STEP * 3, .014);
+      }
+    }
+
+    /* ===== CHILL: warm retro lo-fi, quiet background (every other page) - 78 BPM ===== */
+    const CL = { roots: [0, 8, 3, 10], chords: [[0, 3, 7, 10], [0, 4, 7, 11], [0, 4, 7, 11], [0, 4, 7, 9]], pent: [0, 3, 5, 7, 10] };
+    function playChill(s, t) {
+      const bar = (s >> 4) & 15, i = s & 15, root = CL.roots[bar & 3], chord = CL.chords[bar & 3];
+      const sw = i % 4 === 2 ? STEP * .12 : 0;                 // lazy swing
+      if (i === 0 || i === 10) {                               // electric-piano chords, gently strummed
+        chord.forEach((n, k) => {
+          const f = mtof(24 + root + n), tt = t + k * .014 + (i ? sw : 0);
+          voice(musicBus, 'sine', f, f, tt, STEP * (i ? 5 : 9), i ? .028 : .04, 1600);
+          voice(musicBus, 'triangle', f * 2, f * 2, tt, STEP * 3, .008, 2200);
+        });
+      }
+      if (i === 0 || i === 6 || i === 10) {                    // mellow bass
+        const bf = mtof(12 + root);
+        voice(seq.bassBus, 'sine', bf, bf, t, STEP * (i === 0 ? 4 : 2.5), .3);
+      }
+      if (i === 0 || i === 10) { voice(musicBus, 'sine', 120, 48, t, .22, .34); duck(seq.bassBus, t, .45, .15); }   // soft kick
+      if (i === 8) { hit(musicBus, t, .14, .1, 'bandpass', 1700, 1300, .8); voice(musicBus, 'triangle', 190, 110, t, .1, .06); }   // soft snare
+      if (i % 2 === 0) hit(musicBus, t + sw, .035, i % 4 === 2 ? .02 : .012, 'highpass', 8500, 8500, .5);
+      if (bar >= 2 && (s * 5 + bar) % 7 === 0) {              // sparse pentatonic plucks with a small echo
+        const f = mtof(36 + CL.pent[(s + bar * 3) % 5]);
+        voice(musicBus, 'triangle', f, f, t, STEP * 2, .032, 2400);
+        voice(musicBus, 'triangle', f, f, t + STEP * 3, STEP * 2, .012, 1800);
+      }
+      if (rnd(s * 3) > .6) hit(musicBus, t + rnd(s) * STEP, .015, .016, 'highpass', 6000, 6000, .5);   // vinyl crackle
+    }
+
+    /* ===== CYBER: dark, driving, distorted (switch to it from the terminal) - 126 BPM ===== */
+    const CY = { roots: [0, 0, 8, 7], chords: [[0, 3, 7], [0, 3, 7], [0, 4, 7], [0, 4, 7]],
+      bass: [0, 0, 12, 0, 0, 12, 0, 0, 0, 0, 12, 0, 0, 12, 7, 12], hook: [0, 0, 3, 0, -1, 0, -4, -5], shift: [0, 0, -4, -5] };
+    function playCyber(s, t) {
+      const bar = (s >> 4) & 15, i = s & 15, root = CY.roots[bar & 3], chord = CY.chords[bar & 3];
+      const intro = bar < 2, brk = bar === 7, groove = bar >= 2 && !brk, hard = bar >= 8;
+      if (i === 0) drone(root, chord, t, STEP * 16, .03, 500, 'sawtooth');
+      if ((intro || brk) && i % 2 === 0) { const f = i % 4 === 0 ? 880 : 587; voice(musicBus, 'square', f, f, t, STEP * 1.4, .026, 2200); }   // the alarm
+      if ((bar === 1 || brk) && i === 0) hit(musicBus, t, STEP * 16, brk ? .08 : .05, 'bandpass', 400, 7000, 1);
+      if (groove) {
+        hit(musicBus, t, .04, i % 4 === 2 ? .05 : i % 2 === 0 ? .03 : .016, 'highpass', 8000, 8000, .5);
+        if (i % 8 === 6) hit(musicBus, t, .12, .035, 'highpass', 7000, 7000, .5);
+      } else if (intro && i % 4 === 2) hit(musicBus, t, .04, .02, 'highpass', 8000, 8000, .5);
+      if (groove) {
+        if (i % 4 === 0) { voice(musicBus, 'sine', 165, 44, t, .22, .55); hit(musicBus, t, .012, .12, 'highpass', 3000, 3000, .5); duck(seq.bassBus, t, .22, .11); duck(seq.padBus, t, .3, .2); }
+        if (i === 4 || i === 12) { hit(musicBus, t, .16, .22, 'bandpass', 1900, 1400, .7); voice(musicBus, 'triangle', 210, 120, t, .1, .15); if (hard) hit(musicBus, t + .012, .1, .12, 'bandpass', 2600, 2000, .7); }
+        if (bar % 2 === 1 && i === 15) hit(musicBus, t, .08, .09, 'bandpass', 1800, 1500, .7);
+        if (bar === 15 && i >= 12) hit(musicBus, t, .07, .1, 'bandpass', 1800, 1500, .7);
+        const f = mtof(root + CY.bass[i]);
+        voice(seq.bassIn, 'sawtooth', f, f, t, STEP * .92, i % 4 === 0 ? .34 : .24, 0);
+        voice(musicBus, 'sine', f, f, t, STEP * .92, .28);
+        if (bar >= 4 && (i % 4 === 2 || (hard && (i === 3 || i === 11)))) {
+          chord.forEach(n => [.994, 1.006].forEach(d => { const fr = mtof(24 + root + n) * d; voice(musicBus, 'sawtooth', fr, fr, t, STEP * 1.3, .016, 2400); }));
+        }
+      }
+      if (hard && i % 2 === 0 && !(bar === 15 && i >= 12)) {
+        const f = mtof(36 + CY.hook[i >> 1] + CY.shift[bar & 3]);
+        [.996, 1.004].forEach(d => voice(musicBus, 'sawtooth', f * d, f * d, t, STEP * 1.7, .04, 3000));
+      }
+    }
+
+    const TRACKS = {
+      tech:  { bpm: 120, level: 1,   play: playTech,  resume: (bar, t, n) => drone(TC.roots[bar & 3], TC.chords[bar & 3], t, STEP * n, .034, 900, 'triangle') },
+      chill: { bpm: 78,  level: .5,  play: playChill, resume: null },
+      cyber: { bpm: 126, level: 1,   play: playCyber, resume: (bar, t, n) => drone(CY.roots[bar & 3], CY.chords[bar & 3], t, STEP * n, .03, 500, 'sawtooth') }
+    };
+    let override = '';
+    try { const v = localStorage.getItem('hb-mood'); if (v && TRACKS[v]) override = v; } catch (e) {}
+    const autoMood = () => (document.body.classList.contains('menu') ? 'tech' : 'chill');
+    const mood = () => override || autoMood();
+    const level = () => (T ? T.level : 1);
 
     function startMusic() {
       if (!live() || seq) return;
-      const t0 = ctx.currentTime;
-      // gritty bass chain: saw -> distortion -> low-pass, ducked by the kick
+      const t0 = ctx.currentTime, name = mood();
+      T = TRACKS[name]; STEP = 60 / T.bpm / 4;
+      // bass chain: saw -> distortion -> low-pass (only the cyber track sends into it), ducked by the kick
       const bassIn = ctx.createGain(), shaper = ctx.createWaveShaper(), bassLP = ctx.createBiquadFilter(), bassBus = ctx.createGain();
       shaper.curve = dist(18); shaper.oversample = '2x';
       bassLP.type = 'lowpass'; bassLP.frequency.value = 1100;
       bassIn.connect(shaper); shaper.connect(bassLP); bassLP.connect(bassBus); bassBus.connect(musicBus);
       const padBus = ctx.createGain(); padBus.connect(musicBus);
-      // came from another page a moment ago? carry on from where the song was, with a short fade
+      // came from another page of the SAME track a moment ago? carry on from where it was, with a short fade
       let from = 0, ahead = .15, fade = 2.5, resumed = false;
       try {
         const m = JSON.parse(sessionStorage.getItem(SK) || 'null');
-        if (m && Date.now() - m.wall < 6000) {
+        if (m && m.mood === name && Date.now() - m.wall < 6000) {
           const pos = (((m.pos + (Date.now() - m.wall) / 1000 / STEP) % 256) + 256) % 256, whole = Math.ceil(pos);
           from = whole % 256; ahead = Math.max(.05, (whole - pos) * STEP); fade = .5; resumed = true;
         }
       } catch (e) {}
       musicBus.gain.cancelScheduledValues(t0);
       musicBus.gain.setValueAtTime(musicBus.gain.value, t0);
-      musicBus.gain.linearRampToValueAtTime(vols.music, t0 + fade);
-      seq = { step: from, next: t0 + ahead, bassIn, bassBus, padBus, parts: [bassIn, shaper, bassLP, bassBus, padBus], timer: setInterval(schedule, 40), saved: 0 };
-      if (resumed && (from & 15) !== 0) {      // landed mid-bar: bring the pad in straight away
-        const bar = (from >> 4) & 15;
-        pad(ROOTS[bar & 3], CHORDS[bar & 3], t0 + .05, STEP * (16 - (from & 15)));
-      }
+      musicBus.gain.linearRampToValueAtTime(vols.music * T.level, t0 + fade);
+      seq = { name, step: from, next: t0 + ahead, bassIn, bassBus, padBus, parts: [bassIn, shaper, bassLP, bassBus, padBus], timer: setInterval(schedule, 40), saved: 0 };
+      if (resumed && (from & 15) !== 0 && T.resume) T.resume((from >> 4) & 15, t0 + .05, 16 - (from & 15));   // landed mid-bar
     }
     function schedule() {
       if (!seq || !running()) return;
       const wall = Date.now();
       if (wall - seq.saved > 400) {
         seq.saved = wall;
-        try { sessionStorage.setItem(SK, JSON.stringify({ pos: seq.step - (seq.next - ctx.currentTime) / STEP, wall })); } catch (e) {}
+        try { sessionStorage.setItem(SK, JSON.stringify({ mood: seq.name, pos: seq.step - (seq.next - ctx.currentTime) / STEP, wall })); } catch (e) {}
       }
       while (seq.next < ctx.currentTime + .3) {
-        play(seq.step, seq.next);
+        T.play(seq.step, seq.next);
         seq.next += STEP; seq.step = (seq.step + 1) % 256;
       }
     }
-    function pad(root, chord, t, dur) {                       // a low, dark drone under everything
-      [chord[0], chord[2]].forEach((n, k) => {
-        const f = mtof(12 + root + n) * (k ? 1.003 : .997);
-        voice(seq.padBus, 'sawtooth', f, f, t, dur, .03, 500);
-      });
-    }
-    function play(s, t) {
-      const bar = (s >> 4) & 15, i = s & 15, root = ROOTS[bar & 3], chord = CHORDS[bar & 3];
-      const intro = bar < 2;                                  // bars 0-1: alarm, drone, soft hats
-      const brk = bar === 7;                                  // bar 7: everything drops out except the alarm and a riser
-      const groove = bar >= 2 && !brk;                        // bars 2-6 and 8-15: the full beat
-      const hard = bar >= 8;                                  // bars 8-15: the drop, with the lead riff
-      if (i === 0) pad(root, chord, t, STEP * 16);
-
-      // the "code red" alarm: two harsh staccato tones
-      if ((intro || brk) && i % 2 === 0) {
-        const f = i % 4 === 0 ? 880 : 587;
-        voice(musicBus, 'square', f, f, t, STEP * 1.4, .026, 2200);
-      }
-      if ((bar === 1 || brk) && i === 0) hit(musicBus, t, STEP * 16, brk ? .08 : .05, 'bandpass', 400, 7000, 1);   // riser
-
-      // hats: soft pulses in the intro, driving sixteenths in the groove
-      if (groove) {
-        hit(musicBus, t, .04, i % 4 === 2 ? .05 : i % 2 === 0 ? .03 : .016, 'highpass', 8000, 8000, .5);
-        if (i % 8 === 6) hit(musicBus, t, .12, .035, 'highpass', 7000, 7000, .5);   // open hat
-      } else if (intro && i % 4 === 2) hit(musicBus, t, .04, .02, 'highpass', 8000, 8000, .5);
-
-      if (groove) {
-        if (i % 4 === 0) {                                    // kick, and duck the bass and drone so they pump
-          voice(musicBus, 'sine', 165, 44, t, .22, .55);
-          hit(musicBus, t, .012, .12, 'highpass', 3000, 3000, .5);
-          duck(seq.bassBus, t, .22, .11); duck(seq.padBus, t, .3, .2);
-        }
-        if (i === 4 || i === 12) {                            // snare on 2 and 4
-          hit(musicBus, t, .16, .22, 'bandpass', 1900, 1400, .7);
-          voice(musicBus, 'triangle', 210, 120, t, .1, .15);
-          if (hard) hit(musicBus, t + .012, .1, .12, 'bandpass', 2600, 2000, .7);
-        }
-        if (bar % 2 === 1 && i === 15) hit(musicBus, t, .08, .09, 'bandpass', 1800, 1500, .7);   // ghost snare
-        if (bar === 15 && i >= 12) hit(musicBus, t, .07, .1, 'bandpass', 1800, 1500, .7);       // roll before the loop restarts
-        // distorted rolling bass
-        const f = mtof(root + BASS[i]);
-        voice(seq.bassIn, 'sawtooth', f, f, t, STEP * .92, i % 4 === 0 ? .34 : .24, 0);
-        voice(musicBus, 'sine', f, f, t, STEP * .92, .28);
-        // staccato synth stabs on the off-beats, from bar 4
-        if (bar >= 4 && (i % 4 === 2 || (hard && (i === 3 || i === 11)))) {
-          chord.forEach(n => [.994, 1.006].forEach(d => {
-            const fr = mtof(24 + root + n) * d;
-            voice(musicBus, 'sawtooth', fr, fr, t, STEP * 1.3, .016, 2400);
-          }));
-        }
-      }
-      // lead riff over the drop: two detuned saws, gritty and bright
-      if (hard && i % 2 === 0 && !(bar === 15 && i >= 12)) {
-        const f = mtof(36 + HOOK[i >> 1] + HOOK_SHIFT[bar & 3]);
-        [.996, 1.004].forEach(d => voice(musicBus, 'sawtooth', f * d, f * d, t, STEP * 1.7, .04, 3000));
-      }
-    }
-    function stopMusic() {
+    function stopMusic(keepPos) {
       if (!seq) return;
       clearInterval(seq.timer);
-      try { sessionStorage.removeItem(SK); } catch (e) {}
+      if (!keepPos) { try { sessionStorage.removeItem(SK); } catch (e) {} }
       const t = ctx.currentTime, s = seq; seq = null;
       musicBus.gain.cancelScheduledValues(t);
       musicBus.gain.setValueAtTime(musicBus.gain.value, t);
       musicBus.gain.linearRampToValueAtTime(0, t + .6);
       setTimeout(() => { try { s.parts.forEach(p => p.disconnect()); } catch (e) {} }, 2000);
+    }
+    function setMood(m) {                                      // 'tech', 'chill', 'cyber', or 'auto' (page decides)
+      override = TRACKS[m] ? m : '';
+      try { if (override) localStorage.setItem('hb-mood', override); else localStorage.removeItem('hb-mood'); } catch (e) {}
+      if (seq && live()) { stopMusic(); setTimeout(() => { if (musicOn) startMusic(); }, 650); }
     }
 
     /* ----- sound effects: short, soft, low-passed, so they do not wear you out ----- */
@@ -232,15 +273,15 @@
       if (!live()) return;
       const t = ctx.currentTime;
       if (kind === 'sfx') sfxBus.gain.setTargetAtTime(v, t, .02);
-      else if (seq) musicBus.gain.setTargetAtTime(v, t, .05);
+      else if (seq) musicBus.gain.setTargetAtTime(v * level(), t, .05);
     }
     return {
       init, fx,
       get sfx() { return sfxOn; }, get music() { return musicOn; },
-      volume: kind => vols[kind], setVolume,
+      volume: kind => vols[kind], setVolume, setMood, get mood() { return mood(); },
       get blocked() { return !!ctx && ctx.state === 'suspended' && !document.hidden; },
       fadeOut() { if (live() && seq) { const t = ctx.currentTime; musicBus.gain.cancelScheduledValues(t); musicBus.gain.setValueAtTime(musicBus.gain.value, t); musicBus.gain.linearRampToValueAtTime(0, t + .45); } },
-      fadeIn() { if (live() && seq) { const t = ctx.currentTime; musicBus.gain.cancelScheduledValues(t); musicBus.gain.setValueAtTime(musicBus.gain.value, t); musicBus.gain.linearRampToValueAtTime(vols.music, t + .6); } },
+      fadeIn() { if (live() && seq) { const t = ctx.currentTime; musicBus.gain.cancelScheduledValues(t); musicBus.gain.setValueAtTime(musicBus.gain.value, t); musicBus.gain.linearRampToValueAtTime(vols.music * level(), t + .6); } },
       toggleSfx() { sfxOn = !sfxOn; store.set('hb-snd', sfxOn); },
       toggleMusic() { musicOn = !musicOn; store.set('hb-music', musicOn); musicOn ? startMusic() : stopMusic(); }
     };

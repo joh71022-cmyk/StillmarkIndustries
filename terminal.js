@@ -136,6 +136,11 @@
     sfx(args) { toggleSnd(args, 'sfx'); },
     music(args) { toggleSnd(args, 'music'); },
     overdrive() { HB.toggleOverdrive(); print('OVERDRIVE TOGGLED.', 'ok'); },
+    track(args) {
+      const m = (args[0] || '').toLowerCase();
+      if (!['tech', 'chill', 'cyber', 'auto'].includes(m)) return print('NOW PLAYING: ' + HB.Snd.mood.toUpperCase() + '. USAGE: track tech | chill | cyber | auto', 'dim');
+      HB.Snd.setMood(m); print(m === 'auto' ? 'TRACK: AUTO (TECH ON THE MENU, CHILL EVERYWHERE ELSE)' : 'TRACK: ' + m.toUpperCase(), 'ok');
+    },
     matrix() { startRain(); print('WAKE UP...', 'ok'); },
     clear() { out.textContent = ''; },
     exit() { hide(); },
