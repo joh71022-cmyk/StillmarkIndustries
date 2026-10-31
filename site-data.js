@@ -1,75 +1,12 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvud764
+// stamp: mvvudd0f
 window.SITE_DATA = {
   "site": {
     "title": "HOLLOWBLADE INDUSTRIES",
     "soon": "MORE GAMES SOON",
     "ticker": "/// HOLLOW BLADE IS IN DEVELOPMENT /// JOIN THE DISCORD FOR UPDATES /// NEW GAMES INCOMING /// GEARS: TURNING /// BLADES: SHARPENED /// STATUS: ONLINE "
   },
-  "games": [
-    {
-      "id": "hollowblade",
-      "name": "HOLLOWBLADE",
-      "blurb": "MORE INFO COMING SOON. JOIN THE DISCORD FOR THE LATEST NEWS AND UPDATES.",
-      "tagline": "",
-      "status": "",
-      "icon": "",
-      "banner": "",
-      "accent": "",
-      "blocks": [],
-      "info": [
-        [
-          "DEVELOPER",
-          "HOLLOWBLADE INDUSTRIES"
-        ],
-        [
-          "MAIN DEV",
-          "THECELTICBHOYS"
-        ],
-        [
-          "FIND IT AT",
-          "DISCORD"
-        ]
-      ],
-      "buttons": [
-        {
-          "label": "JOIN DISCORD",
-          "url": "https://discord.gg/QNGN2P7MNC"
-        }
-      ]
-    },
-    {
-      "id": "after-dark",
-      "name": "THE HOLLOW AFTER DARK",
-      "blurb": "MORE INFO COMING SOON. CHECK THE ITCH.IO PAGE FOR THE GAME.",
-      "tagline": "",
-      "status": "",
-      "icon": "",
-      "banner": "",
-      "accent": "",
-      "blocks": [],
-      "info": [
-        [
-          "DEVELOPER",
-          "HOLLOWBLADE INDUSTRIES"
-        ],
-        [
-          "SERIES",
-          "THE HOLLOW"
-        ],
-        [
-          "FIND IT AT",
-          "ITCH.IO"
-        ]
-      ],
-      "buttons": [
-        {
-          "label": "PLAY ON ITCH.IO",
-          "url": "https://untimed.itch.io/the-hollow-after-dark"
-        }
-      ]
-    }
-  ],
+  "games": [],
   "devs": [
     {
       "name": "UnknownService",
