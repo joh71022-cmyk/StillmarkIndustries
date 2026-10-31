@@ -61,16 +61,6 @@ window.SITE_DATA = {
           "url": "https://untimed.itch.io/the-hollow-after-dark"
         }
       ]
-    },
-    {
-      "id": "test",
-      "name": "test",
-      "info": [],
-      "blurb": "",
-      "tagline": "",
-      "status": "",
-      "icon": "",
-      "buttons": []
     }
   ],
   "devs": [
