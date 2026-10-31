@@ -183,35 +183,62 @@ export default {
 
     const hdr = { ...ghHeaders(token), 'Content-Type': 'application/json' };
     const message = String(body.message || 'Update site content via mod panel').slice(0, 100);
-    const apiOf = f => 'https://api.github.com/repos/' + env.REPO + '/contents/' + f.path;
     const problem = async (res, what) => {
       let why = ''; try { why = (await res.json()).message || ''; } catch (e) {}
       return reply({ ok: false, badToken: res.status === 401 || res.status === 403, error: 'GITHUB SAID ' + res.status + ' WHEN ' + what + (why ? ': ' + why : '') + (res.status === 401 ? ' (THE SAVED TOKEN EXPIRED OR WAS REVOKED. ADD A NEW ONE.)' : '') }, 502);
     };
-    const dataFile = files.find(f => f.path === 'site-data.js'), pics = files.filter(f => f.path !== 'site-data.js');
-    // start looking up the data file's current version right away, while the pictures save
-    const shaLookup = dataFile ? fetch(apiOf(dataFile), { headers: hdr }) : null;
-    // pictures have names made from their content, so they are new files: no lookup needed, and they save side by side
-    const saved = await Promise.all(pics.map(async f => {
-      let res = await fetch(apiOf(f), { method: 'PUT', headers: hdr, body: JSON.stringify({ message, content: f.content }) });
-      if (res.status === 422 || res.status === 409) {   // already there under the same name: save over it
-        const cur = await fetch(apiOf(f), { headers: hdr });
-        if (cur.ok) res = await fetch(apiOf(f), { method: 'PUT', headers: hdr, body: JSON.stringify({ message, content: f.content, sha: (await cur.json()).sha }) });
-      }
-      return [f, res];
-    }));
-    for (const [f, res] of saved) if (!res.ok) return problem(res, 'SAVING ' + f.path);
-    if (dataFile) {
-      // 1) the live copy goes out at once  2) the permanent copy is saved in GitHub
-      const text = new TextDecoder().decode(Uint8Array.from(atob(dataFile.content), c => c.charCodeAt(0)));
-      const rec = makeRecord(text, env);
+    const dataFile = files.find(f => f.path === 'site-data.js');
+    const gh = (path, init = {}) => fetch('https://api.github.com/repos/' + env.REPO + path, { ...init, headers: hdr });
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    // GitHub sometimes answers 5xx or "try again" for a moment: ask a few times before giving up
+    const ghRetry = async (path, init, tries = 3) => {
+      let res;
+      for (let i = 0; i < tries; i++) { res = await gh(path, init); if (res.status < 500 && res.status !== 429) return res; await sleep(500 * (i + 1)); }
+      return res;
+    };
+    const post = (path, obj) => ghRetry(path, { method: 'POST', body: JSON.stringify(obj) });
+
+    // Everything goes into ONE commit (pictures and the data file together). Saving files one by one, side by side,
+    // made GitHub refuse some of them ("is at X but expected Y") because each save moved the branch under the others.
+    let rec = null;
+    if (dataFile) {   // check the data file reads properly BEFORE anything is saved
+      rec = makeRecord(new TextDecoder().decode(Uint8Array.from(atob(dataFile.content), c => c.charCodeAt(0))), env);
       if (!rec) return reply({ ok: false, error: 'site-data.js LOOKS BROKEN' }, 400);
+    }
+    // 1) store each file as a blob (these never clash)
+    const blobs = await Promise.all(files.map(async f => [f, await post('/git/blobs', { content: f.content, encoding: 'base64' })]));
+    for (const [f, res] of blobs) if (!res.ok) return problem(res, 'STORING ' + f.path);
+    const entries = [];
+    for (const [f, res] of blobs) entries.push({ path: f.path, mode: '100644', type: 'blob', sha: (await res.json()).sha });
+
+    // 2) add them to the newest version of the branch. If someone else changed the branch meanwhile, start again from the newest.
+    let branch = '', lastRes = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      if (attempt) await sleep(300 * attempt + Math.floor(Math.random() * 300));
+      if (!branch) {
+        const info = await ghRetry('', { method: 'GET' });
+        if (!info.ok) return problem(info, 'OPENING THE REPOSITORY');
+        branch = (await info.json()).default_branch || 'main';
+      }
+      const ref = await ghRetry('/git/ref/heads/' + branch, { method: 'GET' });
+      if (!ref.ok) return problem(ref, 'READING THE BRANCH');
+      const head = (await ref.json()).object.sha;
+      const commit = await ghRetry('/git/commits/' + head, { method: 'GET' });
+      if (!commit.ok) return problem(commit, 'READING THE LATEST VERSION');
+      const tree = await post('/git/trees', { base_tree: (await commit.json()).tree.sha, tree: entries });
+      if (!tree.ok) return problem(tree, 'BUILDING THE NEW VERSION');
+      const made = await post('/git/commits', { message, tree: (await tree.json()).sha, parents: [head] });
+      if (!made.ok) return problem(made, 'MAKING THE COMMIT');
+      const move = await gh('/git/refs/heads/' + branch, { method: 'PATCH', body: JSON.stringify({ sha: (await made.json()).sha, force: false }) });
+      if (move.ok) { lastRes = null; break; }
+      lastRes = move;
+      if (move.status !== 422 && move.status !== 409) return problem(move, 'SAVING');   // a real problem, not just a busy branch
+    }
+    if (lastRes) return reply({ ok: false, error: 'GITHUB WAS BUSY (THE BRANCH KEPT CHANGING). NOTHING WAS LOST: PRESS PUBLISH AGAIN.' }, 503);
+
+    // 3) the live copy goes out as soon as the files are safely in GitHub
+    if (rec) {
       if (kv) { await kv.put('site_data', JSON.stringify(rec)); await caches.default.delete(new Request(new URL('/site-data.js', req.url).href)); }
-      const cur = await shaLookup;
-      let sha;
-      if (cur.ok) sha = (await cur.json()).sha; else if (cur.status !== 404) return problem(cur, 'READING site-data.js');
-      const put = await fetch(apiOf(dataFile), { method: 'PUT', headers: hdr, body: JSON.stringify({ message, content: dataFile.content, sha }) });
-      if (!put.ok) return problem(put, 'SAVING site-data.js');
     }
     return reply({ ok: true, saved: files.map(f => f.path) });
   }

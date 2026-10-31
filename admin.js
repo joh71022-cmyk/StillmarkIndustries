@@ -530,6 +530,17 @@
           PUBLISH_URL ? null : btn('STOP USING THE SERVICE', () => { try { localStorage.removeItem('hb-pub-url'); } catch (e) {} render(); })));
     };
 
+    // asks the service, and tries again by itself if GitHub or the connection hiccups
+    async function send(body) {
+      let r = null;
+      for (let i = 0; i < 3; i++) {
+        try { r = await callService(body); } catch (e) { r = { ok: false, status: 0, error: 'COULD NOT REACH THE PUBLISH SERVICE. CHECK YOUR CONNECTION.' }; }
+        if (r.ok || r.needSetup || r.badToken || (r.status >= 400 && r.status < 500)) return r;
+        if (i < 2) { say('GITHUB IS BUSY, TRYING AGAIN (' + (i + 2) + ' OF 3)...', true); await new Promise(x => setTimeout(x, 1500 * (i + 1))); }
+      }
+      return r;
+    }
+
     async function publish() {
       say('PUBLISHING...', true);
       try {
@@ -555,11 +566,11 @@
         const dataFile = files.pop();                       // site-data.js always goes last
         for (let n = 0; n < files.length; n += 8) {
           say('SAVING PICTURES ' + Math.min(n + 8, files.length) + ' OF ' + files.length + '...', true);
-          const part = await callService({ action: 'publish', files: files.slice(n, n + 8), message: 'Upload pictures via mod panel' });
+          const part = await send({ action: 'publish', files: files.slice(n, n + 8), message: 'Upload pictures via mod panel' });
           if (part.needSetup || part.badToken) { paintSetup(part.error || 'THE SAVED TOKEN NO LONGER WORKS.'); return HB.fx.err(); }
           if (!part.ok) throw new Error(part.error || 'THE PUBLISH SERVICE SAID ' + part.status);
         }
-        const r = await callService({ action: 'publish', files: [dataFile], message: 'Update site content via mod panel' });
+        const r = await send({ action: 'publish', files: [dataFile], message: 'Update site content via mod panel' });
         if (r.needSetup || r.badToken) { paintSetup(r.error || 'THE SAVED TOKEN NO LONGER WORKS.'); return HB.fx.err(); }
         if (!r.ok) throw new Error(r.error || 'THE PUBLISH SERVICE SAID ' + r.status);
         data = pub; try { localStorage.removeItem('hb-draft'); } catch (e) {}
