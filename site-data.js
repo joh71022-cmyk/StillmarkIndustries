@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvuevjd
+// stamp: mvvufgm9
 window.SITE_DATA = {
   "site": {
     "title": "HOLLOWBLADE INDUSTRIES",
@@ -47,7 +47,7 @@ window.SITE_DATA = {
       "badge": "",
       "url": "https://discord.com/users/865600698761609216",
       "main": false,
-      "shape": "hex",
+      "shape": "circle",
       "avatar": "",
       "links": [],
       "pfp": {
