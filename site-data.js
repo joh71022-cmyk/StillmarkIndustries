@@ -1,10 +1,10 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvwat8iw
+// stamp: mvwaxuvk
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
     "soon": "MORE GAMES SOON",
-    "ticker": "",
+    "ticker": "///New Dev///",
     "announce": "///Accounts are out crate one now!///",
     "announceUrl": "",
     "announceTone": "info",
@@ -114,7 +114,8 @@ window.SITE_DATA = {
       "main": false,
       "shape": "circle",
       "avatar": "https://cdn.discordapp.com/avatars/947423539626127373/a_eef0beae04700c6ac78e13bbf43191b1.webp?size=128&animated=true",
-      "links": []
+      "links": [],
+      "pfp": null
     },
     {
       "name": "TheCelticBhoys",
@@ -125,7 +126,8 @@ window.SITE_DATA = {
       "main": true,
       "shape": "circle",
       "avatar": "https://cdn.discordapp.com/avatars/469916668651372556/c6739b44ae8b016e7950b608f897bc30.webp?size=1024",
-      "links": []
+      "links": [],
+      "pfp": null
     },
     {
       "name": "JIPJIP",
@@ -136,7 +138,8 @@ window.SITE_DATA = {
       "main": false,
       "shape": "circle",
       "avatar": "https://cdn.discordapp.com/avatars/865600698761609216/2fb94f18787f0697c67e118cc6f0921c.webp?size=128",
-      "links": []
+      "links": [],
+      "pfp": null
     },
     {
       "name": "snowfy",
@@ -147,7 +150,8 @@ window.SITE_DATA = {
       "main": false,
       "shape": "circle",
       "avatar": "https://cdn.discordapp.com/avatars/1399079638311112869/8c71255eb88eb1d859f58560caa52df1.webp?size=1024",
-      "links": []
+      "links": [],
+      "pfp": null
     }
   ],
   "socials": [
