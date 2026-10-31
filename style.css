@@ -734,3 +734,7 @@ img, video, canvas, svg { max-width:100%; }
 .term-ov, .adm, .cm-ov { grid-template-columns:minmax(0, 1fr); }
 .tbox { width:100%; max-width:740px; min-width:0; box-sizing:border-box; height:min(72vh, 540px); height:min(72dvh, 540px); }
 @media (pointer:coarse) { .cm-chk input[type=checkbox], .adm-form input[type=checkbox], .adm-check input { width:22px; height:22px; } }
+
+/* the picture block's outer box shares a class name with the picture itself: keep it full width so pictures never collapse before they load */
+section.bk.bk-image { margin-inline:0; width:100%; }
+.bk-image img { height:auto; max-width:100%; }
