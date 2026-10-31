@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvus3cd
+// stamp: mvvuu7qj
 window.SITE_DATA = {
   "site": {
     "title": "HOLLOWBLADE INDUSTRIES",
