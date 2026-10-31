@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvwaplyv
+// stamp: mvwat8iw
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -107,7 +107,7 @@ window.SITE_DATA = {
   "devs": [
     {
       "name": "UnknownService",
-      "role": "///CODER///DESIGNER///",
+      "role": "CODER, DESIGNER",
       "bio": "",
       "badge": "",
       "url": "https://discord.com/users/947423539626127373",
@@ -118,7 +118,7 @@ window.SITE_DATA = {
     },
     {
       "name": "TheCelticBhoys",
-      "role": "///LEAD DEVELOPER///",
+      "role": "LEAD DEVELOPER",
       "bio": "",
       "badge": "",
       "url": "https://discord.com/users/469916668651372556",
@@ -129,7 +129,7 @@ window.SITE_DATA = {
     },
     {
       "name": "JIPJIP",
-      "role": "///IDEAS PERSON///",
+      "role": "IDEAS PERSON",
       "bio": "",
       "badge": "",
       "url": "https://discord.com/users/865600698761609216",
@@ -140,14 +140,14 @@ window.SITE_DATA = {
     },
     {
       "name": "snowfy",
-      "role": "///mod///tester///helper///",
+      "role": "mod,tester,helper",
       "bio": "",
       "badge": "",
-      "shape": "circle",
-      "main": false,
       "url": "https://discord.com/users/1399079638311112869",
-      "links": [],
-      "avatar": "https://cdn.discordapp.com/avatars/1399079638311112869/8c71255eb88eb1d859f58560caa52df1.webp?size=1024"
+      "main": false,
+      "shape": "circle",
+      "avatar": "https://cdn.discordapp.com/avatars/1399079638311112869/8c71255eb88eb1d859f58560caa52df1.webp?size=1024",
+      "links": []
     }
   ],
   "socials": [
