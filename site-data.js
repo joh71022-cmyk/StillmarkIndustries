@@ -1,11 +1,11 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvw0cf71
+// stamp: mvw1f0fy
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
     "soon": "MORE GAMES SOON",
-    "ticker": "/// HOLLOW BLADE IS IN DEVELOPMENT /// JOIN THE DISCORD FOR UPDATES /// NEW GAMES INCOMING /// GEARS: TURNING /// BLADES: SHARPENED /// STATUS: ONLINE ",
-    "announce": "",
+    "ticker": "",
+    "announce": "///Accounts are out crate one now!///",
     "announceUrl": "",
     "announceTone": "info",
     "footer": "",
