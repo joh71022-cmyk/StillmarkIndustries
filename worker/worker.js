@@ -99,7 +99,15 @@ export default {
       if (!len) return reply({ ok: false, error: 'THE FILE IS EMPTY OR ITS SIZE IS UNKNOWN' }, 400);
       if (len > MAX_UPLOAD) return reply({ ok: false, error: 'FILE IS TOO BIG (LIMIT 95 MB). PASTE A LINK TO IT INSTEAD, FOR EXAMPLE FROM GOOGLE DRIVE OR MEGA.' }, 413);
       const hdr = { ...ghHeaders(token), 'Content-Type': 'application/json' };
-      const gh = (path, init = {}) => fetch('https://api.github.com/repos/' + env.REPO + path, { ...init, headers: { ...hdr, ...(init.headers || {}) } });
+      const gh = async (path, init = {}) => {
+        let r;
+        for (let i = 0; i < 3; i++) {
+          r = await fetch('https://api.github.com/repos/' + env.REPO + path, { ...init, headers: { ...hdr, ...(init.headers || {}) } });
+          if (r.status < 500 && r.status !== 429) return r;
+          await new Promise(x => setTimeout(x, 500 * (i + 1)));
+        }
+        return r;
+      };
       const fail = async (res, what) => {
         let why = ''; try { why = (await res.json()).message || ''; } catch (e) {}
         return reply({ ok: false, badToken: res.status === 401 || res.status === 403, error: 'GITHUB SAID ' + res.status + ' ' + what + (why ? ': ' + why : '') }, 502);
@@ -107,6 +115,7 @@ export default {
       let rel = await gh('/releases/tags/downloads');
       if (rel.status === 404) {
         rel = await gh('/releases', { method: 'POST', body: JSON.stringify({ tag_name: 'downloads', name: 'Game downloads', body: 'Files offered for download on the Stillmark Industries website.', draft: false, prerelease: false }) });
+        if (rel.status === 422) rel = await gh('/releases/tags/downloads');   // someone made it a moment ago
       }
       if (!rel.ok) return fail(rel, 'WHEN OPENING THE DOWNLOADS RELEASE');
       const release = await rel.json();
@@ -160,6 +169,39 @@ export default {
     if (action === 'forget') {
       if (kv) await kv.delete('github_token');
       return reply({ ok: true, tokenSet: !!env.GITHUB_TOKEN });
+    }
+
+    /* ---- check: test every part the site needs, so a problem is found before you publish ---- */
+    if (action === 'check') {
+      const list = [], add = (name, ok, detail) => list.push({ name, ok, detail: detail || '' });
+      const token = await getToken();
+      add('PUBLISH SERVICE', true, 'ANSWERING');
+      add('MOD CODE', true, 'ACCEPTED');
+      add('GITHUB TOKEN SAVED', !!token, token ? '' : 'ADD YOUR GITHUB TOKEN IN THE PANEL (CHANGE TOKEN).');
+      if (token) {
+        const h = { ...ghHeaders(token), 'Content-Type': 'application/json' };
+        const g = async (path, init) => { try { return await fetch('https://api.github.com/repos/' + env.REPO + path, { ...init, headers: h }); } catch (e) { return { ok: false, status: 0, json: async () => ({}) }; } };
+        const why = async r => { try { return (await r.json()).message || ''; } catch (e) { return ''; } };
+        const repo = await g('', { method: 'GET' });
+        add('GITHUB REPOSITORY (' + env.REPO + ')', repo.ok, repo.ok ? '' : repo.status === 404 ? 'NOT FOUND, OR THE TOKEN IS NOT ALLOWED ON IT. CHECK THE REPOSITORY NAME AND THE TOKEN\'S REPOSITORY ACCESS.' : repo.status === 401 ? 'THE TOKEN WAS REJECTED (WRONG OR EXPIRED). MAKE A NEW ONE.' : 'GITHUB SAID ' + repo.status + ' ' + await why(repo));
+        if (repo.ok) {
+          const branch = (await repo.json()).default_branch || 'main';
+          const ref = await g('/git/ref/heads/' + branch, { method: 'GET' });
+          add('GITHUB BRANCH (' + branch + ')', ref.ok, ref.ok ? '' : 'GITHUB SAID ' + ref.status + ' ' + await why(ref));
+          const blob = await g('/git/blobs', { method: 'POST', body: JSON.stringify({ content: 'connection test', encoding: 'utf-8' }) });
+          add('PERMISSION TO SAVE FILES (CONTENTS: READ AND WRITE)', blob.ok, blob.ok ? '' : 'THE TOKEN CAN READ BUT NOT WRITE. EDIT IT ON GITHUB: CONTENTS = READ AND WRITE. (GITHUB SAID ' + blob.status + ' ' + await why(blob) + ')');
+          const rel = await g('/releases/tags/downloads', { method: 'GET' });
+          add('GAME DOWNLOADS (GITHUB RELEASES)', rel.ok || rel.status === 404, rel.ok ? '' : rel.status === 404 ? 'NOT CREATED YET. IT IS MADE THE FIRST TIME YOU UPLOAD A FILE.' : 'GITHUB SAID ' + rel.status + ' ' + await why(rel));
+        }
+      }
+      if (kv) {
+        let kvOk = false; try { await kv.put('selftest', String(Date.now()), { expirationTtl: 60 }); kvOk = !!(await kv.get('selftest')); } catch (e) {}
+        add('FAST PUBLISHING (LIVE COPY STORAGE)', kvOk, kvOk ? '' : 'THE STORAGE (KV) DID NOT ANSWER.');
+        add('LIVE COPY OF THE SITE', !!(await kv.get('site_data')), (await kv.get('site_data')) ? '' : 'NOTHING PUBLISHED YET. IT APPEARS AFTER YOUR NEXT PUBLISH (OR "SYNC FROM GITHUB").');
+      } else add('FAST PUBLISHING (LIVE COPY STORAGE)', false, 'NO STORAGE (KV) IS CONNECTED. SEE worker/README.md.');
+      if (env.DB) { let dbOk = false; try { dbOk = !!(await env.DB.prepare('SELECT 1 AS x').first()); } catch (e) {} add('COMMUNITY DATABASE', dbOk, dbOk ? '' : 'THE DATABASE DID NOT ANSWER.'); }
+      else add('COMMUNITY DATABASE', false, 'NOT CONNECTED (THE FORUM, COMMENTS AND ACCOUNTS NEED IT).');
+      return reply({ ok: list.filter(x => x.name !== 'LIVE COPY OF THE SITE' && !/GAME DOWNLOADS/.test(x.name)).every(x => x.ok), checks: list });
     }
 
     if (action !== 'publish') return reply({ ok: false, error: 'UNKNOWN ACTION' }, 400);

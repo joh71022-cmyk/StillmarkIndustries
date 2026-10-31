@@ -263,7 +263,16 @@
     });
   }
   // a game file goes to the publish service, which stores it as a GitHub Release file people can download
-  function uploadFile(file, onProgress) {
+  // tries up to 3 times when the connection drops or GitHub has a hiccup (never for a "no": a wrong file, a wrong code)
+  async function uploadFile(file, onProgress) {
+    let last;
+    for (let i = 0; i < 3; i++) {
+      try { return await uploadOnce(file, onProgress); }
+      catch (e) { last = e; if (!e.retry) throw e; if (onProgress) onProgress(0); await new Promise(r => setTimeout(r, 1500 * (i + 1))); }
+    }
+    throw last;
+  }
+  function uploadOnce(file, onProgress) {
     return new Promise((ok, no) => {
       if (!pubUrl()) return no(new Error('SET UP THE PUBLISH SERVICE FIRST (PUBLISH TAB)'));
       if (file.size > 95 * 1024 * 1024) return no(new Error('FILE IS OVER 95 MB. PASTE A LINK TO IT INSTEAD (GOOGLE DRIVE, MEGA...)'));
@@ -272,8 +281,11 @@
       x.open('POST', pubUrl().replace(/\/$/, '') + '/upload?name=' + encodeURIComponent(name));
       x.setRequestHeader('X-Mod-Code', sessionCode);
       x.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
-      x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch (e) {} j.ok ? ok(j) : no(new Error(j.error || 'THE PUBLISH SERVICE SAID ' + x.status)); };
-      x.onerror = () => no(new Error('COULD NOT REACH THE PUBLISH SERVICE'));
+      x.timeout = 15 * 60 * 1000;
+      const bad = (msg, retry) => { const e = new Error(msg); e.retry = retry; no(e); };
+      x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch (e) {} j.ok ? ok(j) : bad(j.error || 'THE PUBLISH SERVICE SAID ' + x.status, x.status >= 500 || x.status === 429); };
+      x.onerror = () => bad('COULD NOT REACH THE PUBLISH SERVICE. CHECK YOUR CONNECTION.', true);
+      x.ontimeout = () => bad('THE UPLOAD TOOK TOO LONG. CHECK YOUR CONNECTION, OR PASTE A LINK TO THE FILE INSTEAD.', true);
       x.send(file);
     });
   }
@@ -523,7 +535,7 @@
         paintSetup('YOU CAN ADD A NEW TOKEN NOW.');
       });
       box.append(...head(), h('h4', {}, 'PUBLISH'), h('p', { class: 'adm-note' }, 'PUBLISHING IS FAST NOW: IT GOES LIVE IN A FEW SECONDS. "SYNC FROM GITHUB" IS ONLY NEEDED IF SOMEONE EDITED site-data.js BY HAND ON GITHUB.'), msg,
-        h('div', { class: 'adm-btns' }, btn('PUBLISH', publish, 'big'), btn('SYNC FROM GITHUB', async () => {
+        h('div', { class: 'adm-btns' }, btn('PUBLISH', publish, 'big'), btn('TEST EVERYTHING', runCheck), btn('SYNC FROM GITHUB', async () => {
           say('COPYING THE SITE DATA FROM GITHUB TO THE LIVE COPY...', true);
           try { const r = await callService({ action: 'import' }); if (!r.ok) throw new Error(r.error || 'THE PUBLISH SERVICE SAID ' + r.status); say('DONE. THE LIVE SITE NOW MATCHES WHAT IS IN GITHUB.', true); HB.fx.ok(); } catch (e) { say('FAILED: ' + e.message); HB.fx.err(); }
         }), forget,
@@ -539,6 +551,19 @@
         if (i < 2) { say('GITHUB IS BUSY, TRYING AGAIN (' + (i + 2) + ' OF 3)...', true); await new Promise(x => setTimeout(x, 1500 * (i + 1))); }
       }
       return r;
+    }
+
+    // asks the service to test every part (GitHub token and permissions, storage, database) and shows what is wrong in plain words
+    async function runCheck() {
+      say('TESTING EVERYTHING...', true);
+      try {
+        const r = await callService({ action: 'check' });
+        if (!r.checks) throw new Error(r.error || 'THE PUBLISH SERVICE SAID ' + r.status);
+        box.querySelectorAll('.chk-list').forEach(n => n.remove());
+        const ul = h('ul', { class: 'adm-list chk-list' }, ...r.checks.map(c => h('li', {}, h('div', { class: 'adm-t' }, h('b', {}, (c.ok ? 'OK    ' : 'FIX   ') + c.name), c.detail ? h('small', {}, c.detail) : null))));
+        msg.after(ul);
+        say(r.ok ? 'ALL GOOD. PUBLISHING AND UPLOADS SHOULD WORK.' : 'SOMETHING NEEDS FIXING (SEE THE LIST). THE LINES THAT SAY FIX EXPLAIN WHAT TO DO.', r.ok); r.ok ? HB.fx.ok() : HB.fx.err();
+      } catch (e) { say('FAILED: ' + e.message); HB.fx.err(); }
     }
 
     async function publish() {
