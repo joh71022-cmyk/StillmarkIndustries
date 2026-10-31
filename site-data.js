@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvvyav4s
+// stamp: mvvyp2xc
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -23,7 +23,7 @@ window.SITE_DATA = {
       "blurb": "",
       "tagline": "Everything you see in here might not be final",
       "status": "IN Development...",
-      "icon": "uploads/the-hollow-after-dark-icon-3da8937f.jpg",
+      "icon": "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/the-hollow-after-dark-icon-3da8937f.jpg",
       "info": [],
       "buttons": [],
       "banner": "",
@@ -31,8 +31,11 @@ window.SITE_DATA = {
       "accentHex": "",
       "width": "normal",
       "bg": "default",
-      "hideGear": false,
-      "showTitle": true,
+      "hideGear": true,
+      "showTitle": false,
+      "showIcon": false,
+      "showLabel": false,
+      "showStatus": true,
       "subtitle": "",
       "blocks": [
         {
@@ -66,7 +69,7 @@ window.SITE_DATA = {
         },
         {
           "type": "image",
-          "src": "uploads/the-hollow-after-dark-b3-src-e22062a7.png",
+          "src": "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/the-hollow-after-dark-b3-src-e22062a7.png",
           "caption": "",
           "size": "wide",
           "look": "plain",
