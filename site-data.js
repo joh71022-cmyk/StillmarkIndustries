@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvwbil08
+// stamp: mvwfwlri
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -68,10 +68,13 @@ window.SITE_DATA = {
           "show": "all"
         },
         {
-          "type": "image",
-          "src": "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/the-hollow-after-dark-b3-src-e22062a7.png",
-          "caption": "",
-          "size": "wide",
+          "type": "gallery",
+          "images": [
+            "uploads/the-hollow-after-dark-b3-0-70e0b44f.webp",
+            "uploads/the-hollow-after-dark-b3-1-e3abd1e2.webp",
+            "uploads/the-hollow-after-dark-b3-2-2af58326.webp"
+          ],
+          "columns": "3",
           "look": "plain",
           "align": "left",
           "width": "full",
@@ -146,6 +149,29 @@ window.SITE_DATA = {
         {
           "type": "divider",
           "style": "line",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        },
+        {
+          "type": "marquee",
+          "text": "/// some of this is most likely going to be in the release ///",
+          "speed": "normal",
+          "look": "plain",
+          "align": "left",
+          "width": "full",
+          "anim": "none",
+          "show": "all"
+        },
+        {
+          "type": "gallery",
+          "images": [
+            "uploads/hollow-blade-vr-b4-0-ca049b4b.png",
+            "uploads/hollow-blade-vr-b4-1-45757ef0.png"
+          ],
+          "columns": "3",
           "look": "plain",
           "align": "left",
           "width": "full",
