@@ -61,6 +61,16 @@ window.SITE_DATA = {
           "url": "https://untimed.itch.io/the-hollow-after-dark"
         }
       ]
+    },
+    {
+      "id": "test",
+      "name": "test",
+      "info": [],
+      "blurb": "",
+      "tagline": "",
+      "status": "",
+      "icon": "",
+      "buttons": []
     }
   ],
   "devs": [
@@ -118,11 +128,6 @@ window.SITE_DATA = {
       "label": "FOLLOW US ON TIKTOK",
       "handle": "@THEHOLLOWBLADEOFFICAL",
       "url": "https://www.tiktok.com/@thehollowbladeoffical"
-    },
-    {
-      "label": "JOIN THE DISCORD",
-      "handle": "DISCORD.GG/QNGN2P7MNC",
-      "url": "https://discord.gg/QNGN2P7MNC"
     }
   ]
 };
