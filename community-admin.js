@@ -3,7 +3,7 @@
   window.HBCommAdmin = function (kit) {
     const { h, btn, call, status } = kit;
     const root = h('div', { class: 'adm-comm' });
-    let view = 'recent', page = 0, settings = null;
+    let view = 'recent', page = 0, settings = null, mq = '', mearly = false;
     const say = t => { status.textContent = t; };
     const lines = a => (a || []).join('\n'), unlines = s => String(s).split('\n').map(x => x.trim()).filter(Boolean);
 
@@ -11,12 +11,13 @@
       root.textContent = '';
       const st = await call({ action: 'c_stats' });
       if (!st.ok) { root.append(h('p', { class: 'adm-note' }, st.error || 'THE COMMUNITY IS NOT SET UP YET. SEE worker/README.md (D1 DATABASE).')); return; }
-      root.append(h('p', { class: 'adm-note' }, `${st.threads} THREADS  |  ${st.posts} POSTS  |  ${st.pending} WAITING  |  ${st.hidden} HIDDEN  |  ${st.bans} BANNED`));
+      root.append(h('p', { class: 'adm-note' }, `${st.threads} THREADS  |  ${st.posts} POSTS  |  ${st.pending} WAITING  |  ${st.hidden} HIDDEN  |  ${st.bans} BANNED  |  ${st.users} MEMBERS  |  ${st.early} ON THE EARLY ACCESS LIST`));
       const tabs = h('div', { class: 'adm-btns' });
-      [['recent', 'RECENT'], ['pending', 'WAITING'], ['reports', 'REPORTED'], ['hidden', 'HIDDEN'], ['staff', 'POST AS STAFF'], ['settings', 'SETTINGS'], ['bans', 'BANS']].forEach(([v, l]) => tabs.append(btn(l + (v === view ? ' *' : ''), () => { view = v; page = 0; paint(); })));
+      [['recent', 'RECENT'], ['pending', 'WAITING'], ['reports', 'REPORTED'], ['hidden', 'HIDDEN'], ['members', 'MEMBERS'], ['staff', 'POST AS STAFF'], ['settings', 'SETTINGS'], ['bans', 'BANS']].forEach(([v, l]) => tabs.append(btn(l + (v === view ? ' *' : ''), () => { view = v; page = 0; paint(); })));
       root.append(tabs);
       const body = h('div'); root.append(body);
       if (view === 'settings') return settingsView(body);
+      if (view === 'members') return membersView(body);
       if (view === 'staff') return staffView(body);
       if (view === 'bans') return bansView(body);
       return listView(body);
@@ -39,6 +40,38 @@
             act('DELETE', { del: true }, 'Delete this for good?'),
             it.ip ? btn('BAN USER', async () => { const why = prompt('Reason (optional)') ; if (why === null) return; const x = await call({ action: 'c_ban', ip: it.ip, reason: why }); say(x.ok ? 'BANNED.' : (x.error || 'FAILED')); }) : null));
         body.append(row);
+      });
+      const nav = h('div', { class: 'adm-btns' });
+      if (page > 0) nav.append(btn('< NEWER', () => { page--; paint(); }));
+      if (r.more) nav.append(btn('OLDER >', () => { page++; paint(); }));
+      body.append(nav);
+    }
+
+    async function membersView(body) {
+      const q = h('input', { type: 'text', placeholder: 'SEARCH NAME OR CONTACT', value: mq });
+      const ec = h('input', { type: 'checkbox' }); ec.checked = mearly;
+      q.addEventListener('keydown', e => { if (e.key === 'Enter') { mq = q.value.trim(); page = 0; paint(); } });
+      ec.addEventListener('change', () => { mearly = ec.checked; page = 0; paint(); });
+      body.append(h('div', { class: 'adm-btns' }, q, h('label', { class: 'adm-check' }, ec, ' EARLY ACCESS ONLY')));
+      const r = await call({ action: 'c_users', page, q: mq, early: mearly });
+      if (!r.ok) return body.append(h('p', { class: 'adm-note' }, r.error || 'FAILED'));
+      if (!r.users.length) body.append(h('p', { class: 'adm-note' }, 'NO MEMBERS FOUND.'));
+      body.append(btn('DOWNLOAD THIS LIST (CSV)', () => {
+        const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""').replace(/^([=+\-@])/, "'$1") + '"';
+        const rows = [['name', 'contact', 'early_access', 'joined', 'posts', 'banned'], ...r.users.map(u => [u.name, u.contact, u.early ? 'yes' : 'no', new Date(u.created * 1000).toISOString().slice(0, 10), u.posts, u.banned ? 'yes' : 'no'])];
+        const a = h('a', { href: URL.createObjectURL(new Blob([rows.map(x => x.map(esc).join(',')).join('\n')], { type: 'text/csv' })), download: 'members.csv' }); document.body.append(a); a.click(); a.remove();
+      }));
+      r.users.forEach(u => {
+        const act = (label, extra, ask) => btn(label, async () => { if (ask && !confirm(ask)) return; const x = await call({ action: 'c_user_set', id: u.id, ...extra }); say(x.ok ? 'DONE.' : (x.error || 'FAILED')); paint(); });
+        body.append(h('div', { class: 'adm-row' },
+          h('b', {}, u.name + (u.early ? '  [EARLY ACCESS]' : '') + (u.banned ? '  [BANNED]' : '')),
+          h('small', { class: 'adm-hint' }, 'JOINED ' + new Date(u.created * 1000).toISOString().slice(0, 10) + '  |  ' + u.posts + ' POSTS  |  CONTACT: ' + (u.contact || 'NONE')),
+          u.bio ? h('p', { class: 'adm-note' }, u.bio) : null,
+          h('div', { class: 'adm-btns' },
+            act(u.early ? 'REMOVE FROM EARLY ACCESS' : 'ADD TO EARLY ACCESS', { early: !u.early }),
+            act(u.banned ? 'UNBAN' : 'BAN', { banned: !u.banned }, u.banned ? '' : 'Ban ' + u.name + '? They are logged out and cannot post.'),
+            btn('NEW PASSWORD', async () => { if (!confirm('Make a new password for ' + u.name + '? Their old one stops working and they are logged out.')) return; const x = await call({ action: 'c_user_reset', id: u.id }); if (x.ok) prompt('Give this to ' + u.name + ' (it is shown only once):', x.password); else say(x.error || 'FAILED'); }),
+            btn('DELETE ACCOUNT', async () => { if (!confirm('Delete the account ' + u.name + ' for good? Their posts stay.')) return; const x = await call({ action: 'c_user_delete', id: u.id }); say(x.ok ? 'DELETED.' : (x.error || 'FAILED')); paint(); }))));
       });
       const nav = h('div', { class: 'adm-btns' });
       if (page > 0) nav.append(btn('< NEWER', () => { page--; paint(); }));

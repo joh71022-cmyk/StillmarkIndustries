@@ -16,6 +16,7 @@
 // Optional: Secret  GITHUB_TOKEN   if you would rather paste the token in Cloudflare than in the panel.
 
 import { communityRoute, communityMod } from './community.js';
+import { avatarRoute } from './accounts.js';
 
 const OK_PATH = /^(site-data\.js|uploads\/[\w.\-]{1,80}\.(png|jpg|jpeg|webp|gif))$/;
 const OK_FILE = /^[\w][\w.\-]{0,100}\.(zip|7z|rar|exe|msi|apk|dmg|pkg|deb|appimage|tar|gz|tgz|xz|pdf|txt|md|mp3|ogg|wav|flac|mp4|webm|m4v|ogv|png|jpg|jpeg|gif|webp|unitypackage|blend|psd)$/i;
@@ -35,7 +36,7 @@ export default {
     const cors = {
       'Access-Control-Allow-Origin': allowed ? origin : env.ALLOWED_ORIGIN,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Mod-Code',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Mod-Code, X-Session',
       'Vary': 'Origin'
     };
     const reply = (obj, status = 200) =>
@@ -44,6 +45,7 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const path0 = new URL(req.url).pathname;
     if (req.method === 'GET' && path0 === '/site-data.js') return siteDataRoute(req, env);
+    if (req.method === 'GET' && path0 === '/c/avatar') return avatarRoute(req, env);
     if (req.method !== 'POST' && !(req.method === 'GET' && (path0 === '/poll' || path0.startsWith('/c/')))) return reply({ ok: false, error: 'POST ONLY' }, 405);
     if (!allowed) return reply({ ok: false, error: 'ORIGIN NOT ALLOWED' }, 403);
     if (!env.MOD_PASSCODE || !env.REPO) return reply({ ok: false, error: 'SERVICE IS NOT SET UP YET (MISSING MOD_PASSCODE OR REPO)' }, 500);

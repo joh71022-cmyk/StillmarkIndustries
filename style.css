@@ -589,3 +589,17 @@ body.no-scan .scan { display:none; } body.no-vig .vignette { display:none; } bod
 .cm-title{margin:10px 0 0}.cm-board{opacity:.5;display:block;margin-bottom:10px}
 .cm-rules summary{cursor:pointer}.cm-rules p{white-space:pre-wrap;font-family:system-ui,sans-serif}
 @media(max-width:560px){.cm-row{flex-direction:column}.cm-post small{margin-left:0}}
+
+/* ---------- accounts ---------- */
+.cm-acct{display:flex;flex-wrap:wrap;gap:10px;align-items:center;border:1px solid #fff4;background:#0009;padding:8px 12px;margin:0 0 12px}
+.cm-acct small{opacity:.65;flex:1;min-width:160px}
+.cm-av{width:28px;height:28px;object-fit:cover;border:1px solid #fff6;image-rendering:auto;flex:none}
+.cm-as{opacity:.8;align-self:center}
+.cm-field{display:block;margin:0 0 8px}.cm-field small{display:block;opacity:.6;margin-bottom:3px}
+.cm-chk{display:block;margin:6px 0 10px;cursor:pointer}.cm-chk input{width:auto!important;margin:0 6px 0 0!important}
+.cm-ov{position:fixed;inset:0;background:#000c;z-index:99999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:5vh 12px}
+.cm-modal{background:#050505;border:2px solid #fff;max-width:480px;width:100%;padding:14px;color:#fff}
+.cm-modal .cm-form{border:0;padding:0;background:none}
+.cm-mbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;letter-spacing:.08em}
+.cm-avbig{display:inline-block;width:72px;height:72px;border:1px solid #fff6;background:#111 center/cover;margin-right:12px;flex:none}
+.cm-row .cm-avbig{flex:none}

@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS threads (
   staff INTEGER NOT NULL DEFAULT 0,
   ip TEXT NOT NULL DEFAULT '',              -- a private fingerprint, never the address itself
   owner TEXT NOT NULL DEFAULT '',           -- a private fingerprint of the author's secret, lets them delete their own post
+  user INTEGER NOT NULL DEFAULT 0,          -- the member who wrote it (0 = a guest)
   created INTEGER NOT NULL,
   last INTEGER NOT NULL,
   ups INTEGER NOT NULL DEFAULT 0,
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS posts (
   body TEXT NOT NULL DEFAULT '',
   ip TEXT NOT NULL DEFAULT '',
   owner TEXT NOT NULL DEFAULT '',
+  user INTEGER NOT NULL DEFAULT 0,
   created INTEGER NOT NULL,
   ups INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'ok',
@@ -43,3 +45,21 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 CREATE TABLE IF NOT EXISTS bans (ip TEXT PRIMARY KEY, reason TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+
+-- member accounts (name + password; see accounts.js)
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  lname TEXT NOT NULL UNIQUE,               -- the name in lower case without spaces or dots, so look-alikes cannot be made
+  salt TEXT NOT NULL, hash TEXT NOT NULL, iter INTEGER NOT NULL DEFAULT 100000,
+  created INTEGER NOT NULL,
+  bio TEXT NOT NULL DEFAULT '',
+  contact TEXT NOT NULL DEFAULT '',         -- optional, only moderators see it (for early access)
+  early INTEGER NOT NULL DEFAULT 0,         -- on the early access list
+  avatar TEXT NOT NULL DEFAULT '',          -- a small picture kept as a data address
+  av INTEGER NOT NULL DEFAULT 0,
+  banned INTEGER NOT NULL DEFAULT 0,
+  ip TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS sessions (th TEXT PRIMARY KEY, user INTEGER NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user, created);

@@ -12,10 +12,21 @@
   const liked = new Set(JSON.parse(store.get('hb-cliked') || '[]'));
   const saveLiked = () => store.set('hb-cliked', JSON.stringify([...liked].slice(-500)));
 
+  // who is logged in (kept in this browser only; the session token is a random secret from the service)
+  let session = store.get('hb-session') || '', me = null;
+  try { me = JSON.parse(store.get('hb-me') || 'null'); } catch (e) {}
+  if (!session) me = null;
+  const setSession = (tok, m) => { session = tok || ''; me = tok ? m : null; store.set('hb-session', session); store.set('hb-me', JSON.stringify(me)); window.dispatchEvent(new Event('hb-account')); };
+  let avVer = 1;
+
   async function call(path, body) {
     try {
-      const res = body === undefined ? await fetch(API + path) : await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, owner }) });
-      const j = await res.json().catch(() => ({})); j.status = res.status; return j;
+      const res = body === undefined
+        ? await fetch(API + path, session ? { headers: { 'X-Session': session } } : undefined)
+        : await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, owner, token: session || undefined }) });
+      const j = await res.json().catch(() => ({})); j.status = res.status;
+      if (j.session === false && session) setSession('');           // the login expired: fall back to being a guest
+      return j;
     } catch (e) { return { ok: false, error: 'THE COMMUNITY IS OFFLINE RIGHT NOW. TRY AGAIN LATER.' }; }
   }
   const withOwner = p => API && p + (p.includes('?') ? '&' : '?') + 'o=' + encodeURIComponent(owner);
@@ -37,7 +48,9 @@
   // one message (a post, a reply, a comment)
   function card(p, kind, onChange) {
     const c = el('article', 'cm-post' + (p.staff ? ' staff' : ''));
-    const head = el('header'); head.append(el('b', 'cm-name', p.name)); if (p.staff) head.append(el('u', 'cm-badge', 'STAFF'));
+    const head = el('header');
+    if (p.av) { const im = el('img', 'cm-av'); im.alt = ''; im.width = 28; im.height = 28; im.loading = 'lazy'; im.src = API + '/c/avatar?u=' + p.uid + '&v=' + (me && me.id === p.uid ? avVer : 0); head.append(im); }
+    head.append(el('b', 'cm-name', p.name)); if (p.staff) head.append(el('u', 'cm-badge', 'STAFF')); else if (p.member) head.append(el('u', 'cm-badge dim', 'MEMBER'));
     if (p.rating) head.append(stars(p.rating)); head.append(el('small', '', ago(p.created))); c.append(head);
     c.append(el('p', 'cm-body', p.body));
     const foot = el('footer'), type = kind === 'thread' ? 'thread' : 'post';
@@ -55,7 +68,10 @@
     const f = el('form', 'cm-form'); f.setAttribute('novalidate', '');
     const note = el('p', 'cm-note');
     const name = el('input'); name.type = 'text'; name.maxLength = 24; name.placeholder = 'YOUR NAME'; name.autocomplete = 'nickname'; name.value = store.get('hb-cname') || ''; name.setAttribute('aria-label', 'Your name');
-    const row = el('div', 'cm-row'); row.append(name);
+    const row = el('div', 'cm-row'); const as = el('small', 'cm-as');
+    const sync = () => { name.hidden = !!me; as.hidden = !me; as.textContent = me ? 'POSTING AS ' + me.name : ''; };
+    const onAcc = () => { if (f.isConnected) f.dataset.seen = '1'; else if (f.dataset.seen) return window.removeEventListener('hb-account', onAcc); sync(); };
+    window.addEventListener('hb-account', onAcc); sync(); row.append(name, as);
     let board, title, rating = 0, starBox;
     if (opts.boards) { board = el('select'); opts.boards.forEach(b => board.append(Object.assign(el('option'), { value: b, textContent: b }))); board.value = opts.board || opts.boards[0]; board.setAttribute('aria-label', 'Board'); row.append(board); }
     f.append(row);
@@ -72,10 +88,10 @@
     f.append(el('div', 'cm-foot'), note); f.querySelector('.cm-foot').append(go, count);
     f.addEventListener('submit', async e => {
       e.preventDefault(); note.className = 'cm-note'; if (go.disabled) return;
-      if (!name.value.trim()) { note.textContent = 'TYPE A NAME FIRST.'; note.classList.add('err'); return; }
+      if (!me && !name.value.trim()) { note.textContent = 'TYPE A NAME FIRST, OR LOG IN.'; note.classList.add('err'); return; }
       go.disabled = true; note.textContent = 'SENDING...';
-      store.set('hb-cname', name.value.trim());
-      const r = await opts.send({ name: name.value.trim(), body: text.value, title: title && title.value, board: board && board.value, rating: rating || undefined, hp: hp.value });
+      if (!me) store.set('hb-cname', name.value.trim());
+      const r = await opts.send({ name: me ? me.name : name.value.trim(), body: text.value, title: title && title.value, board: board && board.value, rating: rating || undefined, hp: hp.value });
       go.disabled = false;
       if (!r.ok) { note.textContent = r.error || 'SOMETHING WENT WRONG.'; note.classList.add('err'); return; }
       text.value = ''; count.textContent = '0 / 2000'; if (title) title.value = ''; rating = 0; if (starBox) starBox.querySelectorAll('.cm-star').forEach(x => x.classList.remove('on'));
@@ -84,13 +100,130 @@
     return f;
   }
 
+
+  /* ---------- accounts: log in, create an account, profile ---------- */
+  function modal(title, build) {
+    const ov = el('div', 'cm-ov'), box = el('div', 'cm-modal'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', title);
+    const close = () => { ov.remove(); document.removeEventListener('keydown', esc); };
+    const esc = e => { if (e.key === 'Escape') close(); };
+    const bar = el('div', 'cm-mbar'); bar.append(el('b', '', title)); const x = el('button', 'cm-mini', 'X'); x.type = 'button'; x.setAttribute('aria-label', 'Close'); x.addEventListener('click', close); bar.append(x);
+    box.append(bar); build(box, close); ov.append(box);
+    ov.addEventListener('mousedown', e => { if (e.target === ov) close(); });
+    document.addEventListener('keydown', esc); document.body.append(ov);
+    const first = box.querySelector('input,textarea,button.cm-go'); if (first) first.focus();
+    return close;
+  }
+  const field = (label, input) => { const l = el('label', 'cm-field'); l.append(el('small', '', label), input); return l; };
+  const input = (type, ph, max, ac) => { const i = el('input'); i.type = type; if (ph) i.placeholder = ph; if (max) i.maxLength = max; if (ac) i.autocomplete = ac; return i; };
+
+  function authModal(start) {
+    modal(start === 'new' ? 'CREATE AN ACCOUNT' : 'LOG IN', (box, close) => {
+      let mode = start || 'login';
+      const body = el('div'); box.append(body);
+      const paint = () => {
+        body.textContent = '';
+        const tabs = el('div', 'cm-tabs'); [['login', 'LOG IN'], ['new', 'CREATE ACCOUNT']].forEach(([m, l]) => { const t = el('button', 'cm-tab' + (m === mode ? ' on' : ''), l); t.type = 'button'; t.addEventListener('click', () => { mode = m; paint(); }); tabs.append(t); });
+        const f = el('form', 'cm-form'); f.setAttribute('novalidate', ''); const note = el('p', 'cm-note');
+        const name = input('text', '', 20, 'username'), pw = input('password', '', 100, mode === 'new' ? 'new-password' : 'current-password');
+        f.append(field('NAME', name), field(mode === 'new' ? 'PASSWORD (8 OR MORE CHARACTERS)' : 'PASSWORD', pw));
+        let contact, early;
+        if (mode === 'new') {
+          contact = input('text', 'OPTIONAL, LIKE A DISCORD NAME', 60); f.append(field('HOW THE TEAM CAN REACH YOU', contact));
+          early = input('checkbox'); const l = el('label', 'cm-chk'); l.append(early, document.createTextNode(' PUT ME ON THE EARLY ACCESS LIST')); f.append(l);
+          f.append(el('p', 'cm-note', 'NO EMAIL NEEDED. YOUR NAME IS YOURS: NO ONE ELSE CAN POST WITH IT. IF YOU FORGET YOUR PASSWORD, ASK A MODERATOR TO RESET IT.'));
+        }
+        const go = el('button', 'cm-go', mode === 'new' ? 'CREATE ACCOUNT' : 'LOG IN'); go.type = 'submit'; f.append(go, note);
+        f.addEventListener('submit', async e => {
+          e.preventDefault(); note.className = 'cm-note'; go.disabled = true; note.textContent = 'ONE MOMENT...';
+          const r = await call(mode === 'new' ? '/c/register' : '/c/login', mode === 'new' ? { name: name.value, password: pw.value, contact: contact.value, early: early.checked } : { name: name.value, password: pw.value });
+          go.disabled = false;
+          if (!r.ok) { note.textContent = r.error || 'SOMETHING WENT WRONG.'; note.classList.add('err'); return; }
+          setSession(r.token, r.me); close();
+        });
+        body.append(tabs, f); name.focus();
+      };
+      paint();
+    });
+  }
+
+  // a small square picture: centre crop, 96 pixels, so it stays a few kilobytes
+  async function avatarFrom(file) {
+    if (file.size > 30e6) throw new Error('THAT PICTURE IS TOO BIG');
+    let src; try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { throw new Error('THIS BROWSER CANNOT OPEN THAT PICTURE. TRY A PNG OR JPG.'); }
+    const side = Math.min(src.width, src.height), c = document.createElement('canvas'); c.width = c.height = 96;
+    const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 96, 96); x.drawImage(src, (src.width - side) / 2, (src.height - side) / 2, side, side, 0, 0, 96, 96);
+    if (src.close) src.close();
+    return c.toDataURL('image/jpeg', .85);
+  }
+
+  function profileModal() {
+    modal('YOUR PROFILE', (box, close) => {
+      const f = el('form', 'cm-form'); f.setAttribute('novalidate', ''); const note = el('p', 'cm-note');
+      let av = null;   // null = unchanged, '' = remove, data address = new
+      const prev = el('span', 'cm-avbig'); const paintAv = () => { prev.style.backgroundImage = av ? 'url("' + av + '")' : (av === null && me.avatar ? 'url("' + API + '/c/avatar?u=' + me.id + '&v=' + avVer + '")' : ''); };
+      const file = input('file'); file.accept = 'image/*';
+      file.addEventListener('change', async () => { const fl = file.files[0]; if (!fl) return; try { av = await avatarFrom(fl); paintAv(); note.textContent = ''; } catch (e) { note.textContent = e.message; note.classList.add('err'); } file.value = ''; });
+      const rm = el('button', 'cm-mini', 'REMOVE PICTURE'); rm.type = 'button'; rm.addEventListener('click', () => { av = ''; paintAv(); });
+      const row = el('div', 'cm-row'); row.append(prev, el('div'));
+      row.lastChild.append(file, rm); paintAv();
+      const bio = el('textarea'); bio.rows = 3; bio.maxLength = 200; bio.value = me.bio || ''; bio.setAttribute('aria-label', 'About me');
+      const contact = input('text', 'OPTIONAL, LIKE A DISCORD NAME', 60); contact.value = me.contact || '';
+      const early = input('checkbox'); early.checked = !!me.early; const el1 = el('label', 'cm-chk'); el1.append(early, document.createTextNode(' EARLY ACCESS LIST: THE TEAM MAY CONTACT ME ABOUT TESTS AND EARLY BUILDS'));
+      const save = el('button', 'cm-go', 'SAVE'); save.type = 'submit';
+      f.append(el('p', 'cm-note', 'LOGGED IN AS ' + me.name), row, field('ABOUT ME', bio), field('HOW THE TEAM CAN REACH YOU (ONLY THE TEAM SEES THIS)', contact), el1, save, note);
+      f.addEventListener('submit', async e => {
+        e.preventDefault(); note.className = 'cm-note'; save.disabled = true; note.textContent = 'SAVING...';
+        const r = await call('/c/profile', { bio: bio.value, contact: contact.value, early: early.checked, ...(av !== null ? { avatar: av } : {}) });
+        save.disabled = false;
+        if (!r.ok) { note.textContent = r.error || 'COULD NOT SAVE.'; note.classList.add('err'); return; }
+        avVer++; setSession(session, r.me); note.textContent = 'SAVED.'; av = null; paintAv();
+      });
+      // password and deleting need the current password again
+      const pw = el('details', 'cm-rules'); pw.append(el('summary', '', 'CHANGE PASSWORD'));
+      const cur = input('password', '', 100, 'current-password'), nw = input('password', '', 100, 'new-password'), pn = el('p', 'cm-note');
+      const ch = el('button', 'cm-go', 'CHANGE PASSWORD'); ch.type = 'button';
+      ch.addEventListener('click', async () => { pn.className = 'cm-note'; const r = await call('/c/password', { password: cur.value, newPassword: nw.value }); pn.textContent = r.ok ? 'PASSWORD CHANGED. YOUR OTHER DEVICES WERE LOGGED OUT.' : (r.error || 'FAILED'); if (!r.ok) pn.classList.add('err'); else { cur.value = nw.value = ''; } });
+      pw.append(field('CURRENT PASSWORD', cur), field('NEW PASSWORD', nw), ch, pn);
+      const dz = el('details', 'cm-rules'); dz.append(el('summary', '', 'DELETE MY ACCOUNT'));
+      const dp = input('password', '', 100, 'current-password'), dn = el('p', 'cm-note', 'YOUR POSTS STAY, BUT THEY NO LONGER BELONG TO A MEMBER. THIS CANNOT BE UNDONE.');
+      const dbtn = el('button', 'cm-mini', 'DELETE FOR GOOD'); dbtn.type = 'button';
+      dbtn.addEventListener('click', async () => { const r = await call('/c/deleteaccount', { password: dp.value }); if (r.ok) { setSession(''); close(); } else { dn.textContent = r.error || 'FAILED'; dn.classList.add('err'); } });
+      dz.append(field('YOUR PASSWORD', dp), dbtn, dn);
+      box.append(f, pw, dz);
+    });
+  }
+
+  let verified = false;
+  function accountBar() {
+    const bar = el('div', 'cm-acct');
+    const paint = () => {
+      bar.textContent = '';
+      if (me) {
+        if (me.avatar) { const im = el('img', 'cm-av'); im.alt = ''; im.width = 28; im.height = 28; im.src = API + '/c/avatar?u=' + me.id + '&v=' + avVer; bar.append(im); }
+        bar.append(el('b', '', me.name), el('small', '', me.early ? 'MEMBER  |  EARLY ACCESS' : 'MEMBER'));
+        const pr = el('button', 'cm-mini', 'PROFILE'); pr.type = 'button'; pr.addEventListener('click', profileModal);
+        const lo = el('button', 'cm-mini', 'LOG OUT'); lo.type = 'button'; lo.addEventListener('click', async () => { await call('/c/logout', {}); setSession(''); });
+        bar.append(pr, lo);
+      } else {
+        bar.append(el('small', '', 'POSTING AS A GUEST. AN ACCOUNT SAVES YOUR NAME, LETS YOU JOIN THE EARLY ACCESS LIST AND ADD A PICTURE.'));
+        const a = el('button', 'cm-go', 'LOG IN'), n = el('button', 'cm-go', 'CREATE ACCOUNT'); a.type = n.type = 'button';
+        a.addEventListener('click', () => authModal('login')); n.addEventListener('click', () => authModal('new')); bar.append(a, n);
+      }
+    };
+    const onAcc = () => { if (bar.isConnected) bar.dataset.seen = '1'; else if (bar.dataset.seen) return window.removeEventListener('hb-account', onAcc); paint(); };
+    window.addEventListener('hb-account', onAcc); paint();
+    if (session && !verified) { verified = true; call('/c/me', {}).then(r => { if (r.ok && JSON.stringify(r.me) !== JSON.stringify(me)) setSession(session, r.me); }); }   // refresh what we know (and drop a dead login)
+    return bar;
+  }
+
   /* ---------- comments (and reviews) on a page element ---------- */
   function mountComments(root, key, opts) {
     opts = opts || {}; root.textContent = '';
     const head = el('div', 'cm-head'), listBox = el('div', 'cm-list'), more = el('button', 'cm-more', 'LOAD MORE'); more.type = 'button'; more.hidden = true;
     const status = el('p', 'cm-note');
-    root.append(head, status);
+    root.append(accountBar(), head, status);
     let page = 0, formEl = null;
+    window.addEventListener('hb-account', () => { if (root.isConnected) load(true); });
     async function load(reset) {
       if (reset) { page = 0; listBox.textContent = ''; }
       const r = await call(withOwner('/c/comments?key=' + encodeURIComponent(key) + '&page=' + page));
@@ -120,10 +253,12 @@
     const body = el('div'); root.append(body);
     const setHash = v => { if (useHash) { try { history.replaceState(null, '', v ? '#t=' + v : location.pathname + location.search); } catch (e) {} } };
     const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    let cur = 0;
+    window.addEventListener('hb-account', () => { if (root.isConnected) (cur ? open(cur) : showList(true)); });
 
     async function showList(reset) {
-      stop(); setHash(''); if (reset) page = 0;
-      body.textContent = '';
+      stop(); setHash(''); if (reset) page = 0; cur = 0;
+      body.textContent = ''; body.append(accountBar());
       if (!boot) { boot = await call('/c/boot'); if (!boot.ok) { body.append(el('p', 'cm-note err', boot.error || 'THE FORUM IS OFFLINE.')); return; } }
       if (!boot.forum) { body.append(el('p', 'cm-note', 'THE FORUM IS CLOSED RIGHT NOW.')); return; }
       if (boot.rules) { const d = el('details', 'cm-rules'); d.append(el('summary', '', 'COMMUNITY RULES'), el('p', '', boot.rules)); body.append(d); }
@@ -157,8 +292,8 @@
     }
 
     async function open(id) {
-      stop(); setHash(id); body.textContent = '';
-      const back = el('button', 'cm-back', '< ALL THREADS'); back.type = 'button'; back.addEventListener('click', () => showList(true)); body.append(back);
+      stop(); setHash(id); cur = id; body.textContent = '';
+      const back = el('button', 'cm-back', '< ALL THREADS'); back.type = 'button'; back.addEventListener('click', () => showList(true)); body.append(back, accountBar());
       const view = el('div'); body.append(view);
       let pages = 1;
       async function paint() {
