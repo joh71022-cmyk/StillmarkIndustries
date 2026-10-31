@@ -6,7 +6,7 @@
   const HASH = 'a2e2d932cf3c0de3835bd597a8f45f48247e4789c89e233e6ad72bd0c9fc03eb';
   const DEFAULT_REPO = 'joh71022-cmyk/HOLLOWBLADEINDUSTRIES';
   // address of the publish service (see worker/README.md). Not secret. Empty = ask for a token instead.
-  const PUBLISH_URL = '';
+  const PUBLISH_URL = 'https://hollowblade-publish.joh71022.workers.dev';
   const pubUrl = () => {
     if (PUBLISH_URL) return PUBLISH_URL;
     try { return localStorage.getItem('hb-pub-url') || ''; } catch (e) { return ''; }
