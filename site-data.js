@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvwfwlri
+// stamp: mvxp3z7u
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -70,9 +70,9 @@ window.SITE_DATA = {
         {
           "type": "gallery",
           "images": [
-            "uploads/the-hollow-after-dark-b3-0-70e0b44f.webp",
-            "uploads/the-hollow-after-dark-b3-1-e3abd1e2.webp",
-            "uploads/the-hollow-after-dark-b3-2-2af58326.webp"
+            "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/the-hollow-after-dark-b3-0-70e0b44f.webp",
+            "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/the-hollow-after-dark-b3-1-e3abd1e2.webp",
+            "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/the-hollow-after-dark-b3-2-2af58326.webp"
           ],
           "columns": "3",
           "look": "plain",
@@ -168,8 +168,9 @@ window.SITE_DATA = {
         {
           "type": "gallery",
           "images": [
-            "uploads/hollow-blade-vr-b4-0-ca049b4b.png",
-            "uploads/hollow-blade-vr-b4-1-45757ef0.png"
+            "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/hollow-blade-vr-b4-0-ca049b4b.png",
+            "uploads/hollow-blade-vr-b4-1-fb3ee9d9.webp",
+            "uploads/hollow-blade-vr-b4-2-c38fad97.png"
           ],
           "columns": "3",
           "look": "plain",
