@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvxp3z7u
+// stamp: mvy3535v
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -169,8 +169,8 @@ window.SITE_DATA = {
           "type": "gallery",
           "images": [
             "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/hollow-blade-vr-b4-0-ca049b4b.png",
-            "uploads/hollow-blade-vr-b4-1-fb3ee9d9.webp",
-            "uploads/hollow-blade-vr-b4-2-c38fad97.png"
+            "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/hollow-blade-vr-b4-1-fb3ee9d9.webp",
+            "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/hollow-blade-vr-b4-2-c38fad97.png"
           ],
           "columns": "3",
           "look": "plain",
@@ -209,18 +209,6 @@ window.SITE_DATA = {
       "pfp": null
     },
     {
-      "name": "JIPJIP",
-      "role": "IDEAS PERSON",
-      "bio": "",
-      "badge": "",
-      "url": "https://discord.com/users/865600698761609216",
-      "main": false,
-      "shape": "circle",
-      "avatar": "https://cdn.discordapp.com/avatars/865600698761609216/2fb94f18787f0697c67e118cc6f0921c.webp?size=128",
-      "links": [],
-      "pfp": null
-    },
-    {
       "name": "snowfy",
       "role": "mod,tester,helper",
       "bio": "",
@@ -233,11 +221,5 @@ window.SITE_DATA = {
       "pfp": null
     }
   ],
-  "socials": [
-    {
-      "label": "FOLLOW US ON TIKTOK",
-      "handle": "@THEHOLLOWBLADEOFFICAL",
-      "url": "https://www.tiktok.com/@thehollowbladeoffical"
-    }
-  ]
+  "socials": []
 };
