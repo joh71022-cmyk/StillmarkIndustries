@@ -1,5 +1,5 @@
 // Site content (games, devs, socials). The mod panel can edit and publish this file.
-// stamp: mvy353d0
+// stamp: mws1vkou
 window.SITE_DATA = {
   "site": {
     "title": "STILLMARK INDUSTRIES",
@@ -107,11 +107,11 @@ window.SITE_DATA = {
     },
     {
       "id": "hollow-blade-vr",
-      "name": "hollow blade vr",
+      "name": "outboundvr",
       "blurb": "",
       "tagline": "Everything you see in here might not be final",
       "status": "In development",
-      "icon": "https://raw.githubusercontent.com/joh71022-cmyk/StillmarkIndustries/main/uploads/hollow-blade-vr-icon-10ede8dc.png",
+      "icon": "uploads/hollow-blade-vr-icon-87f4b162.png",
       "info": [],
       "buttons": [],
       "banner": "",
